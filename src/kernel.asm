@@ -7,7 +7,7 @@
 ;; RP - ESP - Return stack pointer
 ;; X  - ?
 ;; UP - ?
-			[map all kernel.map]
+			[map symbols kernel.map]
 		
 			CPU 486 			; it's 1999
 			ORG 0

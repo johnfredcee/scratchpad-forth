@@ -17,11 +17,16 @@ LNKOPT = option quiet
 .EXTENSIONS: .exe .rex .lib .obj .o .wbj .asm .c .for  
 
 OBJS = main.obj
+MUNGEROBJS = munger.obj 
 
 vesa.exe : $(OBJS) .PRECIOUS
 	wcl386 $(LFLAGS) -fe=vesa.exe -bf=$^&.lnk $(OBJS) 
 #	wlink $(LINKOPT) system dos32a name vesa.exe file{ $(OBJS) }
 
+
+all: .SYMBOLIC
+	vesa.exe
+		
 .c.obj :
 	$(CC) -c $^&.c $(CFLAGS)
 

@@ -23,16 +23,16 @@ CFLAGS += -I"../.."
 forth.exe : $(OBJS) kernel.bin kernel.h .PRECIOUS
 	wcl386 $(LFLAGS) -fe=forth.exe -bf=$^&.lnk $(OBJS) 
 
-kernel.h: kernel.asm .PRECIOUS
-	python3.4 munger.py
-
 kernel.bin: kernel.asm .PRECIOUS
 	nasm -f bin kernel.asm -l kernel.lst -o kernel.bin 
-	python3.4 munger.py
+	perl3 munger.pl > kernel.h
 
 clean : .SYMBOLIC 
-	rm *.o *.bin kernel.h
+	rm *.o *.bin *.map kernel.h
 
+all : .SYMBOLIC
+	kernel.bin forth.exe
+	
 .c.obj :
 	$(CC) -c $^&.c $(CFLAGS)
 
