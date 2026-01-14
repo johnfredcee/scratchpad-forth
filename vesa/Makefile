@@ -8,8 +8,8 @@ CC = wcl$(PROCESSOR)
 MODEL = f       # flat
 
 ASM = wasm
-CFLAGS = -m$(MODEL) -od -d2 -db -s -hd -5r -zp1 -bc -bcl=dos32a  
-LFLAGS = -m$(MODEL) -od -d2 -db -s -hd -5r -zp1 -bcl=dos32a  
+CFLAGS = -m$(MODEL) -od -d2 -db -s -hd -5r -zp1 -bc -bcl=stub32a
+LFLAGS = -m$(MODEL) -od -d2 -db -s -hd -5r -zp1 -bcl=stub32a
 AFLAGS =
 LNKOPT = option quiet
 
@@ -26,7 +26,10 @@ vesa.exe : $(OBJS) .PRECIOUS
 
 all: .SYMBOLIC
 	vesa.exe
-		
+
+clean: .SYMBOLIC
+	del *.obj
+	
 .c.obj :
 	$(CC) -c $^&.c $(CFLAGS)
 

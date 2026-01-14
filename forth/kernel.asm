@@ -115,7 +115,23 @@ divmod_:	XOR EDX,EDX
 			MOV [EBP+4],EDX
 			MOV [EBP],EAX
 			NEXTI
-	
+
+;;; (reg offset interrupt number --- 0 | Offset of real mode call structure )
+intr21_:	PUSH EDI
+			MOV EAX,0300h		
+			MOV EBX,[EBP+4]
+			XOR ECX,ECX
+			PUSH DS
+			POP  ES
+			MOV EDI,[EBP]
+			INT 31h	
+			JNC .ok
+			XOR	EDI,EDI
+.ok:		LEA EBP,[EBP+4]	
+			MOV [EBP],EDI
+			POP EDI
+			NEXTI
+
 ;;; entry point, here we go
 forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			LEA ESI,[_cesp+EBX]
