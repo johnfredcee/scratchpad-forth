@@ -82,6 +82,23 @@ unsigned long lfb_linesize;
 	"int	16h"	\
 	modify [eax];
 
+
+#pragma aux dosmalloc = \
+	"mov eax,0100h" \
+	"int31h" \
+	"jc @@error" \
+	"shl eax,16" \
+	"mov eax,dx" \
+	"xor ebx,ebx" \
+	"jmp @@fin" \
+"@@error:"\
+	"shl eax,16" \
+	"mov ax,bx" \
+	"xor ebx,ebx" \
+	"jmp @@fin" \
+"@@fin:"
+#pragma aux lowdree = 
+
 // This is not the best way to check for presence of VGA, but it is just an
 // example of how you can use the extended VGA BIOS functions without need
 // to call DPMI.
