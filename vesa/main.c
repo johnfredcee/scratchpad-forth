@@ -12,11 +12,10 @@
 struct vbeinfoblock  {
 	unsigned char	VbeSignature[4];
 	unsigned short	VbeVersion;
-	char		*OemStringPtr;
+	char		    *OemStringPtr;
 	unsigned long	Capabilities;
 	unsigned short	*VideoModePtr;
 	unsigned short	TotalMemory;
-	
 	unsigned short	OemSoftwareRev;
 	char		*OemVendorNamePtr;
 	char		*OemProductNamePtr;
@@ -81,6 +80,21 @@ unsigned long lfb_linesize;
 	"xor	ax,ax"	\
 	"int	16h"	\
 	modify [eax];
+
+#pragma aux dosmalloc = \
+	"mov eax,0100h" \
+	"int31h" \
+	"jc @@error" \
+	"shl eax,16" \
+	"mov eax,dx" \
+	"xor ebx,ebx" \
+	"jmp @@fin" \
+"@@error:"\
+	"shl eax,16" \
+	"mov ax,bx" \
+	"xor ebx,ebx" \
+	"jmp @@fin" \
+"@@fin:"
 
 // This is not the best way to check for presence of VGA, but it is just an
 // example of how you can use the extended VGA BIOS functions without need
@@ -147,8 +161,8 @@ unsigned long lfb_linesize;
   "mov ax,bx"		     \
 "@@done:"		     \
   modify [eax ebx ecx esi edi]	\
-  value [eax]	
-	
+  value [eax];
+
 #pragma aux mapmem = \
 	"mov eax,0FF98h" \
 	"mov ebx, lfb_physaddr" \
@@ -158,7 +172,35 @@ unsigned long lfb_linesize;
 	"xor ebx, ebx" \
 "@@done:" \
 	modify [eax ebx ecx esi edi] \
-	value [ebx]
+	value [ebx];
+
+#pragma aux getdac = \
+	"mov eax, 0408h" \
+	"mov ebx, 01h" \
+	"int 21h" \
+	"cmp ax,04fh" \
+	"mov al,bh" \
+	"mov ah,0" \
+	"jz @@done" \
+	"xor eax,eax" \
+"@@done:" \
+	modify [eax ebx ecx esi edi] \
+	value [eax];
+
+#pragma aux getpalette = \
+	"mov eax,0409h" \
+	"mov ebx,01h" \
+	"xor edx,edx" \
+	"mov ecx,255" \
+	"int 21h" \
+	"cmp al, 04fh" \
+	"mov eax,edi" \
+	"jz @@done" \
+	"xor eax,eax" \
+"@@done:" \
+	modify [eax ebx ecx edx edi] \
+	parm [edi] \
+	value [eax]
 
 void ShowVI() {
 	printf("Video BIOS Extension Information:\n");
@@ -185,7 +227,7 @@ void ShowVI() {
 
 	printf("Capabilities         :   0x%08X\n",
 		   VIB.Capabilities);
-	
+
 	printf("Mode List Ptr        :   0x%08X\n",
 		   VIB.VideoModePtr);
 
@@ -197,21 +239,22 @@ void ShowMI() {
   int n;
   int mode=0;
   unsigned short* ModePtr = VIB.VideoModePtr;
-  
+
   printf("Video Mode Information:\n");
   printf("=======================\n");
-	
+
   for(;;) {
     if((mode=(*ModePtr++))==0xFFFF) break;
-    
+
     printf("Video Mode:  %04Xh  -  ",mode);
-    
+
+
     if(getmodeinfo(mode)!=0) printf("invalid");
 	  else {
 	    if((MIB.ModeAttributes&0x0010)==0)
 	      printf("text     ");
 	    else	printf("graphics ");
-	    
+
 	    printf("%4d x ",MIB.XResolution);
 	    printf("%4d x ",MIB.YResolution);
 	    printf("%2d bits/pixel,  ",MIB.BitsPerPixel);
@@ -235,7 +278,6 @@ unsigned short FindRightMode()
 	{
 		if ((result != 0) || ((mode=(*ModePtr++))==0xFFFF))
 			break;
-	
 		if(getmodeinfo(mode)==0)
 		{
 		  if ((MIB.XResolution == 640) && (MIB.YResolution == 480) &&
@@ -245,7 +287,6 @@ unsigned short FindRightMode()
 		      result = mode;
 		    }
 		}
-		
 	}
 	return result;
 }
@@ -261,7 +302,9 @@ int main(int argc, char *argv[])
 	unsigned short newmode = 0;
 	unsigned short oldmode = 0;
 	struct modeinfoblock *modeinfo = NULL;
-	
+	// unsigned char dacmem[256];
+	// unsigned int dacbits;
+
 	lfb_physsize = 640 * 480;
 	lfb_linesize = 640;
 	if(detectvga()) {
@@ -287,7 +330,7 @@ int main(int argc, char *argv[])
 	if (lfb_linearbase == 0) {
 	  fprintf(stderr, "Failed to map memory\n");
 	  exit(-1);
-	}	
+	}
 	oldmode = getcurrentmode();
 	printf("Candidate mode %08x\n", newmode);
 	printf("Current mode %08x\n", oldmode);
@@ -299,6 +342,12 @@ int main(int argc, char *argv[])
 	    fprintf(stderr, "Mode change failed\n");
 	    exit(-1);
 	  }
+	//   dacbits = getdac();
+	//   if (dacbits != 0) {
+	// 	  printf("%d bits in dac\n", dacbits);
+	//   } else {
+	// 	  fprintf(stderr,"Failed to read dac\n");
+	//   }
 	  printf("Hit key to change back\n");
 	  getchar();
 	  if (setlinearmode(oldmode, 1) == 0) {
