@@ -78,9 +78,12 @@ int main(int argc, char **argv) {
   long kernel_size;
   uint8 *kernel;
   uint8 *kernel_data;
+  void *herecw, *allotcw, *litcw;
   void *dupcw, *overcw, *dropcw, *swapcw;
+  void *addcw, *subcw; 
+  void *fetchcw, *storecw;
   void *emitcw;
-  void *litcw;
+  void *intrcw;
   void *testmecw;
   void *callforthcw;
   void *exitforthcw;
@@ -112,28 +115,43 @@ int main(int argc, char **argv) {
     *latest_ptr = (uint32)kernel + K_DICTTOP;
 
     /* start building the dictionary */
+	herecw = mkdict("HERE", MK_PTR(K_HEREVAR), 0);
     exitcw = mkdict("EXIT", MK_PTR(K_DOEXIT), 0);
     dupcw = mkdict("DUP", MK_PTR(K_DUP), 0);
     overcw = mkdict("OVER", MK_PTR(K_OVER), 0);
     dropcw = mkdict("DROP", MK_PTR(K_DROP), 0);
     swapcw = mkdict("SWAP", MK_PTR(K_SWAP), 0);
-    mkdict("@", MK_PTR(K_FETCH), 0);
-    mkdict("!", MK_PTR(K_STORE), 0);
-    mkdict("+", MK_PTR(K_ADD), 0);
-    mkdict("-", MK_PTR(K_SUB), 0);
+    fetchcw = mkdict("@", MK_PTR(K_FETCH), 0);
+    storecw = mkdict("!", MK_PTR(K_STORE), 0);
+    addcw = mkdict("+", MK_PTR(K_ADD), 0);
+    subcw = mkdict("-", MK_PTR(K_SUB), 0);
     mkdict("*", MK_PTR(K_MUL), 0);
     mkdict("/MOD", MK_PTR(K_DIVMOD), 0);
-    mkdict("INTR21", MK_PTR(K_INTR21), 0);
-    mkdict("EMIT", MK_PTR(K_EMIT), 0);
-    exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
-    litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
+    allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
+    intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
+    emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
+	litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
+	exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
 
-    testmecw = colon("TESTME");
-    comma((uint32)litcw);
-    comma(42);
-    comma((uint32)dropcw);
-    semicolon();
-
+	testmecw = colon("TESTME");
+	comma((uint32)herecw);
+	comma((uint32)fetchcw);          // ( regstruct -- )
+	comma((uint32)litcw);
+	comma(0x30);
+	comma((uint32)allotcw);
+	comma((uint32)dupcw);              // ( regstruct regstruct -- )
+	comma((uint32)litcw);
+	comma(0x1C);
+	comma((uint32)addcw);
+	comma((uint32)addcw);
+	comma((uint32)litcw);
+	comma(0x0E41);
+	comma((uint32)storecw);
+	comma((uint32)litcw);
+	comma((uint32)0x10);
+	comma((uint32)intrcw);
+	semicolon();
+   	
     callforthcw = colon("CALLFORTH");
     comma((uint32)testmecw);
     comma((uint32)exitforthcw);

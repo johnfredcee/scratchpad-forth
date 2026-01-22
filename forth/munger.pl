@@ -1,9 +1,8 @@
 #!/usr/bin/perl
 # Perl 3 compatible version for MS-DOS
 
-# Check if filename was provided
 
-$filename = "KERNEL.MAP";
+$filename = "kernel.map";
 
 # Open the file
 open(FH, $filename) || die "Cannot open file '$filename': $!\n";
@@ -11,7 +10,6 @@ open(FH, $filename) || die "Cannot open file '$filename': $!\n";
 # Process each line
 while (<FH>) {
     # Match pattern: two hex values and a symbol
-    # Adjust the regex pattern based on your specific format
     if ((/\b([0-9A-Fa-f]+)\s+([0-9A-Fa-f]+)\s+(\w+)/) && (substr($', 0, 1) ne '.')) {
         $hex1 = $1;
         $hex2 = $2;

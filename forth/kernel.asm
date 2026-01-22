@@ -104,8 +104,8 @@ swap_:		MOV EAX,[EBP]
 			MOV [EBP],EBX
 			NEXTI	
 
-fetch_:		MOV EDX,[EBP]		; EDX <- address to fetch
-			MOV EAX,[EDX]		; EAX <- value at address
+fetch_:		MOV EAX,[EBP]		; EDX <- address to fetch
+			MOV EAX,[EAX]		; EAX <- value at address
 			MOV [EBP],EAX
 			NEXTI
 
@@ -150,6 +150,10 @@ allot_:		MOV EDX,[EBP]
 			LEA EBP,[EBP+4]
 			NEXTI
 
+herevar_:	LEA EAX,[_here+EBX]
+			PUSHDSP EAX
+			NEXTI
+	
 ;; ( -- n ) push literal on stack
 lit_:		LEA EBP,[EBP-4]
 			MOV EAX,[ESI]
@@ -160,8 +164,8 @@ lit_:		LEA EBP,[EBP-4]
 
 ;; --- system words
 
-;;; (reg offset interrupt number --- 0 | Offset of real mode call structure )
-intr21_:	PUSH EBX
+;;; (offset intnum  --- 0 | offset )
+intr_:		PUSH EBX
 			PUSH EDI
 			MOV EAX,0300h		; dpmi - simulate real mode interrupt	
 			MOV EBX,[EBP+4]		; bl = interrupt number, rest of ebx = 0
@@ -183,7 +187,7 @@ emit_:		LEA	EDX,[EBX+_dpmiregs]
 			MOV EAX,21h
 			MOV [EBP-8], EAX
 			MOV [EBP-4], EDX
-			LEA EDX,[intr21_+EBX]
+			LEA EDX,[intr_+EBX]
 			MOV [EBP],EDX
 			EXECUTEI
 			NEXTI
