@@ -90,18 +90,21 @@ dup_:		MOV EAX,[EBP]
 			MOV [EBP], EAX
 			NEXTI
 
+;;; (x1 x2 --- x1 x2 x1 )
 over_:		MOV EAX,[EBP+4]
 			LEA EBP,[EBP-4]
 			MOV [EBP], EAX
 			NEXTI
 
+;; ( x -- )
 drop_:		LEA EBP,[EBP+4]
 			NEXTI
 
+;; ( x1 x2 -- x2 x1 )
 swap_:		MOV EAX,[EBP]
-			MOV EBX,[EBP-4]
-			MOV [EBP-4],EAX
-			MOV [EBP],EBX
+			MOV EDX,[EBP+4]
+			MOV [EBP+4],EAX
+			MOV [EBP],EDX
 			NEXTI	
 
 fetch_:		MOV EAX,[EBP]		; EDX <- address to fetch
@@ -146,7 +149,7 @@ divmod_:	XOR EDX,EDX
 allot_:		MOV EDX,[EBP]
 			MOV EAX,[_here+EBX]
 			ADD EAX,EDX
-			MOV [_here+EBX],EDX
+			MOV [_here+EBX],EAX
 			LEA EBP,[EBP+4]
 			NEXTI
 
@@ -168,11 +171,11 @@ lit_:		LEA EBP,[EBP-4]
 intr_:		PUSH EBX
 			PUSH EDI
 			MOV EAX,0300h		; dpmi - simulate real mode interrupt	
-			MOV EBX,[EBP+4]		; bl = interrupt number, rest of ebx = 0
+			MOV EBX,[EBP]		; bl = interrupt number, rest of ebx = 0
 			XOR ECX,ECX			; number of words of stack to use
 			PUSH DS
 			POP  ES
-			MOV EDI,[EBP]
+			MOV EDI,[EBP+4]
 			INT 31h	
 			JNC .ok
 			XOR	EDI,EDI
@@ -182,13 +185,18 @@ intr_:		PUSH EBX
 			POP EBX
 			NEXTI
 
-emit_:		LEA	EDX,[EBX+_dpmiregs]
-			LEA EBP,[EBP-12]
-			MOV EAX,21h
-			MOV [EBP-8], EAX
-			MOV [EBP-4], EDX
-			LEA EDX,[intr_+EBX]
-			MOV [EBP],EDX
+;;; ( char -- )
+emit_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
+			MOV EAX,[EBP]			; grab char to print
+			MOV AH,0Eh				; int 10 function
+			MOV [EDX+DPMI_EAX],EAX ; print it
+			XOR EAX,EAX
+			MOV [EDX+DPMI_EBX], EAX ; current color this page
+			LEA EBP,[EBP-4]
+			MOV EAX,10h				; push interrupt call
+			MOV [EBP], EAX
+			LEA EDX,[intr_+EBX]		; push register offset
+			MOV [EBP+4],EDX
 			EXECUTEI
 			NEXTI
 
@@ -236,14 +244,14 @@ _cebp:		DD	0
 ;;; buffer foe dpmi rag calls
 _dpmiregs: 	DD 0 dup (34h)
 
-	SECTION FORTHDICT  align=4 nobits
+	SECTION FORTHDICT  align=4 progbits
 	BITS 32
 		
 		;;; reserve space for rest of dict and user words
 _dicttop:	RESB	1024 * 116 	
 
 	
-	SECTION STACKS  align=4 nobits
+	SECTION STACKS  align=4 progbits
 	BITS 32
 
 _stackbrk:	RESD	1

@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
     *latest_ptr = (uint32)kernel + K_DICTTOP;
 
     /* start building the dictionary */
-	herecw = mkdict("HERE", MK_PTR(K_HEREVAR), 0);
+    herecw = mkdict("HERE", MK_PTR(K_HEREVAR), 0);
     exitcw = mkdict("EXIT", MK_PTR(K_DOEXIT), 0);
     dupcw = mkdict("DUP", MK_PTR(K_DUP), 0);
     overcw = mkdict("OVER", MK_PTR(K_OVER), 0);
@@ -130,31 +130,31 @@ int main(int argc, char **argv) {
     allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
     intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
     emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
-	litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
-	exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
+    litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
+    exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
 
-	testmecw = colon("TESTME");
-	comma((uint32)herecw);
-	comma((uint32)fetchcw);          // ( regstruct -- )
-	comma((uint32)litcw);
-	comma(0x30);
-	comma((uint32)allotcw);
-	comma((uint32)dupcw);              // ( regstruct regstruct -- )
-	comma((uint32)litcw);
-	comma(0x1C);
-	comma((uint32)addcw);
-	comma((uint32)addcw);
-	comma((uint32)litcw);
-	comma(0x0E41);
-	comma((uint32)storecw);
-	comma((uint32)litcw);
-	comma((uint32)0x10);
-	comma((uint32)intrcw);
-	semicolon();
+    testmecw = colon("TESTME");
+    comma((uint32)herecw);
+    comma((uint32)fetchcw);          // ( regstruct -- )
+    comma((uint32)litcw);
+    comma(0x30);
+    comma((uint32)allotcw);
+    comma((uint32)dupcw);              // ( regstruct regstruct -- )
+    comma((uint32)litcw);
+    comma(0x1C);                      // ( regstruct regstruct 1c -- )
+    comma((uint32)addcw);             // (regstruct regstruct + 1c )
+    comma((uint32)litcw);             
+    comma(0x0E41);                    // (regstruct regstruct + 1c 0x0E41 -- )
+    comma((uint32)swapcw);                    // ( regstrict 0x04E1 regstruct -- )
+    comma((uint32)storecw);           // ( regstruct -- )
+    comma((uint32)litcw);
+    comma((uint32)0x10);              // ( regstruct 0x10 -- )
+    comma((uint32)intrcw);            // ( -- result )
+    semicolon();
    	
     callforthcw = colon("CALLFORTH");
     comma((uint32)testmecw);
-    comma((uint32)exitforthcw);
+    comma((uint32)exitforthcw); 
 
     /* compute kernel entry address */
     forth = (void (*)(void *, void *))(kernel + K_FORTH);
@@ -162,6 +162,9 @@ int main(int argc, char **argv) {
     printf("Callforth cw @ %08x\n", (uint32)callforthcw);
     printf("Stack top @ %08p\n", MK_PTR(K_STACKTOP) );
     printf("R stack top %08p\n", MK_PTR(K_RSTACKTOP) );
+    printf("Store @%08p\n", MK_PTR(K_STORE) );
+    printf("Intr @%08p\n", MK_PTR(K_INTR) );
+    printf("Here @%08p\n", (void*)(*here_ptr) );
     printf("Entering kernel @ %08x\n", (uint32)forth);
     forth(kernel, callforthcw);
     printf("Left kernel\n");
