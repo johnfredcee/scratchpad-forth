@@ -34,7 +34,7 @@ DPMI_CS  EQU 2Ch
 DPMI_SP  EQU 2Eh
 DPMI_SS  EQU 30h
 
-			SECTION	KERNEL ALIGN=1 progbits
+			SECTION	KERNEL ALIGN=4 progbits
 			BITS 32
 
 			db "KSTART"
@@ -192,15 +192,92 @@ emit_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
 			MOV [EDX+DPMI_EAX],EAX ; print it
 			XOR EAX,EAX
 			MOV [EDX+DPMI_EBX], EAX ; current color this page
-			LEA EBP,[EBP-4]
+			LEA EBP,[EBP-8]
 			MOV EAX,10h				; push interrupt call
-			MOV [EBP], EAX
-			LEA EDX,[intr_+EBX]		; push register offset
-			MOV [EBP+4],EDX
+			MOV [EBP+4], EAX
+			MOV [EBP+8], EDX
+			MOV EDX,[EBX+intr_]
+			MOV [EBP], EDX
 			EXECUTEI
+			LEA EBP,[EBP-4]
 			NEXTI
 
-			DB 066h,066h,066h,066h
+;; ( -- char )
+key_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
+			MOV AH,07h				; int 21 function
+			MOV [EDX+DPMI_EAX], EAX
+			LEA EBP,[EBP-12]
+			MOV EAX,21h
+			MOV [EBP+4], EAX
+			MOV [EBP+8], EDX
+			LEA EDX,[EBX+intr_]
+			MOV [EBP], EDX
+			EXECUTEI
+			MOV EDX,[EBP]
+			JNZ .ok
+			XOR EAX,EAX
+			JMP .fin
+.ok:		MOV EAX,[EDX+_dpmiregs]
+			MOVZX EAX,AL
+.fin:		MOV [EBP],EAX
+			NEXTI
+
+hxtov_aux:  MOV  EAX,[EBP]
+			MOV  EDX,[EBP+4]
+			LEA  EBP,[EBP+8]
+			MOV  ECX,8
+			LEA  EDX,[EDX+16]
+			PUSH EBX 
+.next:		MOV  BL,AL
+			AND  BL,0Fh
+			CMP  BL,9
+			JBE  .digit 
+			ADD  BL,'A'-10
+			JMP  .letter
+.digit:	    ADD  BL, '0'
+.letter:	MOV  BH,1Eh ; yellow on blue
+			MOV  [EDX],BX
+			LEA  EDX,[EDX - 2]
+	  		SHR  EAX,4
+			DEC  ECX
+			JNZ  .next
+			POP EBX
+			RET
+
+hxtov_:		LEA EAX, [hxtov_aux+EBX]
+			CALL EAX
+			NEXTI
+
+;; clear top line of video display
+clv80_:		MOV ECX,80
+			MOV EDX,0B8000h
+			MOV AX,1E20h
+.cll:		MOV [EDX],AX
+			LEA EDX,[EDX + 2]
+			DEC ECX
+			JNE	.cll
+			NEXTI
+
+seestk_:	MOV EDX,0B8000h
+			MOV ECX,EBP			
+.again:		MOV EAX,[ECX] ; value
+			PUSH ECX
+			MOV [EBP-4], EDX ; video location
+			MOV [EBP-8], EAX ; value
+			LEA EBP,[EBP-8]
+			PUSH EDX
+			LEA EAX,[hxtov_aux+EBX]
+			CALL EAX
+			POP EDX
+			POP ECX
+			LEA EDX,[EDX+12h]
+			LEA ECX,[ECX+4]
+			LEA EAX,[EBX+_stacktop]
+			CMP ECX,EAX
+			JNE .again
+			NEXTI
+
+			db 0F4h, 0F4h, 0F4h, 0F4h
 
 ;; -- forth entry and exit
 

@@ -2,9 +2,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <i86.h>
 
 #include "gendefs.h"
 #include "kernel.h"
+
+void clearscreen()
+{
+    union REGS regs;
+
+    regs.w.cx = 0;
+    regs.w.dx = 0x1850;
+    regs.h.bh = 7;
+    regs.w.ax = 0x0600;
+    int386( 0x10, &regs, &regs );
+    regs.h.ah = 2;
+    regs.h.bh = 0;
+    regs.w.dx = 0;
+    int386( 0x10, &regs, &regs );
+}
 
 #define F_IMMEDIATE 0x80
 #define F_HIDDEN 0x20
@@ -22,6 +38,7 @@ typedef struct dict_entry {
 #pragma pack(pop)
 
 void (*forth)(void *base, void *colonstart);
+
 
 /* newest word in dictionary */
 uint32 *latest_ptr;
@@ -83,12 +100,14 @@ int main(int argc, char **argv) {
   void *addcw, *subcw; 
   void *fetchcw, *storecw;
   void *emitcw;
+  void *clv80cw,*hxtovcw,*seestkcw;
   void *intrcw;
   void *testmecw;
   void *callforthcw;
   void *exitforthcw;
 
-  printf("Hello world\n");
+  clearscreen();
+  printf("\nBooting forth\n");
   kernel_file = fopen("KERNEL.BIN", "rb");
   if (kernel_file != NULL) {
     fseek(kernel_file, 0, SEEK_END);
@@ -131,9 +150,13 @@ int main(int argc, char **argv) {
     intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
     emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
     litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
+    clv80cw = mkdict("CLV80", MK_PTR(K_CLV80), 0);
+    hxtovcw = mkdict("HXTOV", MK_PTR(K_HXTOV), 0);
+    seestkcw = mkdict("SEESTK", MK_PTR(K_SEESTK), 0);
     exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
 
     testmecw = colon("TESTME");
+  /*
     comma((uint32)herecw);
     comma((uint32)fetchcw);          // ( regstruct -- )
     comma((uint32)litcw);
@@ -150,6 +173,15 @@ int main(int argc, char **argv) {
     comma((uint32)litcw);
     comma((uint32)0x10);              // ( regstruct 0x10 -- )
     comma((uint32)intrcw);            // ( -- result )
+ */
+    comma((uint32)clv80cw);
+    comma((uint32)litcw);
+    comma((uint32)0xB8000);
+    comma((uint32)litcw);
+    comma((uint32)0xCECE80FF);
+    comma((uint32)seestkcw);
+    comma((uint32)dropcw);
+    comma((uint32)dropcw);
     semicolon();
    	
     callforthcw = colon("CALLFORTH");
@@ -157,13 +189,13 @@ int main(int argc, char **argv) {
     comma((uint32)exitforthcw); 
 
     /* compute kernel entry address */
-    forth = (void (*)(void *, void *))(kernel + K_FORTH);
-    printf("Forth entry point offset %08x\n", (uint32) forth - (uint32) kernel);
+    forth = MK_PTR(K_FORTH);
+    printf("Forth entry point offset %08x\n", K_FORTH);
     printf("Callforth cw @ %08x\n", (uint32)callforthcw);
     printf("Stack top @ %08p\n", MK_PTR(K_STACKTOP) );
     printf("R stack top %08p\n", MK_PTR(K_RSTACKTOP) );
     printf("Store @%08p\n", MK_PTR(K_STORE) );
-    printf("Intr @%08p\n", MK_PTR(K_INTR) );
+    printf("SEESTK @%08p\n", MK_PTR(K_SEESTK) );
     printf("Here @%08p\n", (void*)(*here_ptr) );
     printf("Entering kernel @ %08x\n", (uint32)forth);
     forth(kernel, callforthcw);
