@@ -222,6 +222,59 @@ key_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
 .fin:		MOV [EBP],EAX
 			NEXTI
 
+
+;; --- get input source
+source_: 	LEA EDX,[EBX+_tiblen]
+			XOR EAX,EAX
+			MOV AL,[EDX]
+			MOV [EBP-8],EAX
+			INC EDX
+			MOV [EBP-4],EDX
+			LEA EBP,[EBP-8]
+			NEXTI
+
+;; get offset into input source
+ingt_:		LEA EAX,[EBX+_tibchr]
+			MOV [EBP-4],EAX
+			LEA EBP,[EBP-4]
+			NEXTI		
+
+word_:		PUSH ESI
+			PUSH EDI
+			MOV ESI,[EBX+_tibchr]   ; ESI = tib
+			LEA EAX,[EBX+_tib]
+			ADD ESI,EAX 
+			LEA EDI,[EBX+_parsebuf] ; EDI = prsebuf
+			MOV EAX,[EBP]			; AL = delimiter
+			XOR ECX,ECX				; ECX = count
+.leading:	MOV DL,[ESI]			; skip leading delimiters
+			CMP AL,DL
+			JNZ .parsing			
+			INC ESI
+			JMP .leading
+.parsing:	MOV DL,[ESI]			; start the parse
+			CMP AL,DL				; when we hit the ending delimter, we are done
+			JZ  .done		 		
+			MOV [EDI],DL			; copy char to parsebuf
+	 		INC ECX					; count chars
+			INC ESI					; bump to next char
+			INC EDI
+			JMP .parsing
+.done:		
+			INC ESI					; bmp esi past the delimiter
+			LEA EDI,[EBX+_parseblen]
+			MOV [EDI],CL			; put length in parsebuflen
+			MOV [EBP],EDI			; put parsbuf on top of stack
+			MOV EAX,ESI
+			LEA EDX,[EBX+_tib]
+			SUB EAX,EDX
+			MOV [EBX+_tibchr], EAX
+			POP EDI
+			POP ESI
+			NEXTI
+		
+;; --- debugging support routines 
+
 hxtov_aux:  MOV  EAX,[EBP]
 			MOV  EDX,[EBP+4]
 			LEA  EBP,[EBP+8]
@@ -244,11 +297,14 @@ hxtov_aux:  MOV  EAX,[EBP]
 			POP EBX
 			RET
 
+;; write hex value to video memory
+;;( videmem value -- )
 hxtov_:		LEA EAX, [hxtov_aux+EBX]
 			CALL EAX
 			NEXTI
 
 ;; clear top line of video display
+;; ( -- )
 clv80_:		MOV ECX,80
 			MOV EDX,0B8000h
 			MOV AX,1E20h
@@ -258,6 +314,8 @@ clv80_:		MOV ECX,80
 			JNE	.cll
 			NEXTI
 
+;; write contents of stack to top line of video memory
+;; ( -- )
 seestk_:	MOV EDX,0B8000h
 			MOV ECX,EBP			
 .again:		MOV EAX,[ECX] ; value
@@ -319,7 +377,14 @@ _cesp:		DD	0
 _cebp:		DD	0
 
 ;;; buffer foe dpmi rag calls
-_dpmiregs: 	DD 0 dup (34h)
+_dpmiregs: 	TIMES 34h DD 0 
+
+;; something to read input from
+_parseblen: DB 0
+_parsebuf:  TIMES 255 DB 0
+_tiblen:    DB 0 
+_tib:		TIMES 255 DB 0
+_tibchr:    DD 0
 
 	SECTION FORTHDICT  align=4 progbits
 	BITS 32
@@ -331,10 +396,10 @@ _dicttop:	RESB	1024 * 116
 	SECTION STACKS  align=4 progbits
 	BITS 32
 
-_stackbrk:	RESD	1
+_stackbrk:	DD		0FEFEFEFEh
 			RESB	1024*8		; 8k for the stack
 _stacktop:
 
-_rstackbrk:	RESD  	1
+_rstackbrk:	DD  	0FEFEFEFEh
 			RESB	1024*4		; 4k for the return stack
 _rstacktop:	

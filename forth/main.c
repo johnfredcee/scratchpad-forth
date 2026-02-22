@@ -39,7 +39,6 @@ typedef struct dict_entry {
 
 void (*forth)(void *base, void *colonstart);
 
-
 /* newest word in dictionary */
 uint32 *latest_ptr;
 /* end of dictionary */
@@ -102,9 +101,12 @@ int main(int argc, char **argv) {
   void *emitcw;
   void *clv80cw,*hxtovcw,*seestkcw;
   void *intrcw;
+  void *sourcecw, *intgtcw, *wordcw;
   void *testmecw;
   void *callforthcw;
   void *exitforthcw;
+  char *tib,*tiblen;
+  void *tibptr;
 
   clearscreen();
   printf("\nBooting forth\n");
@@ -154,9 +156,17 @@ int main(int argc, char **argv) {
     hxtovcw = mkdict("HXTOV", MK_PTR(K_HXTOV), 0);
     seestkcw = mkdict("SEESTK", MK_PTR(K_SEESTK), 0);
     exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
+    sourcecw = mkdict("SOURCE", MK_PTR(K_SOURCE), 0);
+    intgtcw = mkdict(">IN", MK_PTR(K_INGT), 0);
+    wordcw = mkdict("WORD", MK_PTR(K_WORD), 0);
 
+    tib = (char*) MK_PTR(K_TIB);
+    strcpy(tib," HELLO WORLD ");
+    tiblen =(char*)  MK_PTR(K_TIBLEN);
+    *tiblen = strlen(tib);
     testmecw = colon("TESTME");
-  /*
+  
+  /* -- testing dpmi -- print 'A' using tty
     comma((uint32)herecw);
     comma((uint32)fetchcw);          // ( regstruct -- )
     comma((uint32)litcw);
@@ -168,12 +178,14 @@ int main(int argc, char **argv) {
     comma((uint32)addcw);             // (regstruct regstruct + 1c )
     comma((uint32)litcw);             
     comma(0x0E41);                    // (regstruct regstruct + 1c 0x0E41 -- )
-    comma((uint32)swapcw);                    // ( regstrict 0x04E1 regstruct -- )
+    comma((uint32)swapcw);            // ( regstrict 0x04E1 regstruct -- )
     comma((uint32)storecw);           // ( regstruct -- )
     comma((uint32)litcw);
     comma((uint32)0x10);              // ( regstruct 0x10 -- )
     comma((uint32)intrcw);            // ( -- result )
  */
+
+ /* testing stack visualiser
     comma((uint32)clv80cw);
     comma((uint32)litcw);
     comma((uint32)0xB8000);
@@ -182,6 +194,17 @@ int main(int argc, char **argv) {
     comma((uint32)seestkcw);
     comma((uint32)dropcw);
     comma((uint32)dropcw);
+  */
+
+  /* testing input buffer */
+    comma((uint32)litcw);
+    comma(0x20);
+    comma((uint32)wordcw);
+    comma((uint32)seestkcw);
+    comma((uint32)litcw);
+    comma(0x20);
+    comma((uint32)wordcw);
+    comma((uint32)seestkcw);  
     semicolon();
    	
     callforthcw = colon("CALLFORTH");
@@ -194,8 +217,8 @@ int main(int argc, char **argv) {
     printf("Callforth cw @ %08x\n", (uint32)callforthcw);
     printf("Stack top @ %08p\n", MK_PTR(K_STACKTOP) );
     printf("R stack top %08p\n", MK_PTR(K_RSTACKTOP) );
-    printf("Store @%08p\n", MK_PTR(K_STORE) );
-    printf("SEESTK @%08p\n", MK_PTR(K_SEESTK) );
+    printf("TIB @%08p\n", MK_PTR(K_TIB) );
+    printf("TIBCHR @%08p\n", MK_PTR(K_TIBCHR) );
     printf("Here @%08p\n", (void*)(*here_ptr) );
     printf("Entering kernel @ %08x\n", (uint32)forth);
     forth(kernel, callforthcw);
