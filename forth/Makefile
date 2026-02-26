@@ -15,9 +15,9 @@ LFLAGS = -m$(MODEL) -od -d2  -s -hd -5r -zp1
 AFLAGS = -f obj
 
 .EXTENSIONS:
-.EXTENSIONS: .exe .rex .bin .lib .obj .o .wbj .asm .c .for
+.EXTENSIONS: .exe .rex .bin .lib .o .obj .wbj .asm .c .for
 
-OBJS = main.obj 
+OBJS = main.o 
 CFLAGS += -I"../.."
 
 forth.exe : $(OBJS) kernel.bin kernel.h .PRECIOUS
@@ -25,13 +25,16 @@ forth.exe : $(OBJS) kernel.bin kernel.h .PRECIOUS
 
 kernel.bin: kernel.asm .PRECIOUS
 	nasm -f bin kernel.asm -l kernel.lst -o kernel.bin 
-	perl3 munger.pl > kernel.h
+	perl munger.pl > kernel.h
 
 clean : .SYMBOLIC 
-	rm *.obj *.bin *.map kernel.h forth.exe
+	rm *.o *.bin *.map kernel.h forth.exe
 
 all : .SYMBOLIC
 	kernel.bin forth.exe
+
+.c.o :
+	$(CC) -c $^&.c $(CFLAGS)
 
 .c.obj :
 	$(CC) -c $^&.c $(CFLAGS)
@@ -39,7 +42,7 @@ all : .SYMBOLIC
 .c.wbj :
 	$(CC) -c $^& $(CFLAGS) -zw -fo=$^&.wbj 
 
-.asm.obj :
+.asm.o :
 	$(ASM) $(AFLAGS)  $^&.asm -l $^&.lst 
 
 

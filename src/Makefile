@@ -31,7 +31,7 @@ kernel.bin: kernel.asm .PRECIOUS
 	python3.4 munger.py
 
 clean : .SYMBOLIC 
-	rm *.o *.bin kernel.h
+	rm *.o *.map *.bin kernel.h forth.exe
 
 .c.o :
 	$(CC) -c $^&.c $(CFLAGS)

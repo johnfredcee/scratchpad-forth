@@ -272,8 +272,54 @@ word_:		PUSH ESI
 			POP EDI
 			POP ESI
 			NEXTI
-		
-;; --- debugging support routines 
+
+;;; -- dictionary building
+;; ( n --- ) 	
+comma:		MOV EAX,[EBP]	
+			MOV EDX,[_here+EBX]
+			MOV [EDX],EAX
+			ADD EDX,4
+			MOV [_here+EBX],EDX
+			LEA EBP,[EBP+4]
+			NEXTI
+			
+;; ( codeword name flags -- )
+mkdict:	   PUSH EDI
+		   PUSH ESI
+		   MOV EDI,[_here+EBX]
+		   PUSH EDI				; save here
+		   MOV ESI,[_link+EBX]
+		   MOV [EDI],ESI		; link
+		   ADD EDI,4
+		   MOV EAX,[EBP]
+		   MOV [EDI],AL			; flags
+		   XOR AL,AL			  
+		   INC EDI
+		   MOV [EDI], AL		; pad0
+		   INC EDI
+		   MOV [EDI],AL			; pad1
+		   INC EDI
+		   MOV ESI,[EBP+4]		; name length
+		   XOR ECX,ECX
+		   MOV CL,[ESI]
+		   CMP CL,16
+		   JBE .namecopy
+		   MOV CL,16
+.namecopy: MOV [EDI],CL			; name
+		   INC EDI
+		   CLD
+		   REP STOSB
+		   MOV EAX,[EBP+8]		; codeword	
+		   MOV [EDI],EAX
+		   ADD EDI,4
+		   MOV [_here+EBX],EDI	; set here
+		   POP EDI				; edi = old here
+		   MOV [_latest+EBX],EDI
+		   POP ESI
+		   POP EDI
+		   NEXTI
+		   
+;;; --- debugging support routines 
 
 hxtov_aux:  MOV  EAX,[EBP]
 			MOV  EDX,[EBP+4]
