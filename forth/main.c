@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
   void *emitcw;
   void *clv80cw,*hxtovcw,*seestkcw;
   void *intrcw;
-  void *sourcecw, *intgtcw, *wordcw;
+  void *sourcecw, *intgtcw, *wordcw, *mkdictcw, *commacw, *findwrdcw;
   void *testmecw;
   void *callforthcw;
   void *exitforthcw;
@@ -158,10 +158,13 @@ int main(int argc, char **argv) {
     exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
     sourcecw = mkdict("SOURCE", MK_PTR(K_SOURCE), 0);
     intgtcw = mkdict(">IN", MK_PTR(K_INGT), 0);
+    commacw = mkdict(",", MK_PTR(K_COMMA), 0);
+    findwrdcw = mkdict("FINDWRD", MK_PTR(K_FINDWRD), 0);
+    mkdictcw = mkdict("MKDICT", MK_PTR(K_MKDICT), 0);
     wordcw = mkdict("WORD", MK_PTR(K_WORD), 0);
-
+  
     tib = (char*) MK_PTR(K_TIB);
-    strcpy(tib," HELLO WORLD ");
+    strcpy(tib,"WORD");
     tiblen =(char*)  MK_PTR(K_TIBLEN);
     *tiblen = strlen(tib);
     testmecw = colon("TESTME");
@@ -196,7 +199,7 @@ int main(int argc, char **argv) {
     comma((uint32)dropcw);
   */
 
-  /* testing input buffer */
+  /* testing input buffer 
     comma((uint32)litcw);
     comma(0x20);
     comma((uint32)wordcw);
@@ -206,7 +209,14 @@ int main(int argc, char **argv) {
     comma((uint32)wordcw);
     comma((uint32)seestkcw);  
     semicolon();
-   	
+*/
+
+    comma((uint32)litcw);
+    comma((uint32)tiblen);
+    comma((uint32)findwrdcw);
+    comma((uint32)seestkcw);  
+    semicolon();
+
     callforthcw = colon("CALLFORTH");
     comma((uint32)testmecw);
     comma((uint32)exitforthcw); 

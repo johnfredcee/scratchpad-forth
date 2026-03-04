@@ -294,7 +294,7 @@ findwrd:	PUSH ESI
 			PUSH ESI			; save start of word sought
 			PUSH EDI			
 			PUSH ECX
-			ADD	 ESI,8
+			ADD	 ESI,7
 			MOV  AL,[ESI]
 			CMP  AL,CL
 			JNE  .nomatch
@@ -303,6 +303,7 @@ findwrd:	PUSH ESI
 			JBE  .inrange
 			MOV	 AL,16
 .inrange:
+			INC  EDI
 			REPE CMPSB
 			JNE  .nomatch
 			JMP	 .found
