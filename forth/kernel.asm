@@ -282,42 +282,91 @@ comma:		MOV EAX,[EBP]
 			MOV [_here+EBX],EDX
 			LEA EBP,[EBP+4]
 			NEXTI
+
+;; ( c-ccc -- address )
+findwrd:	PUSH ESI
+			PUSH EDI
+			MOV  ESI,[_latest+EBX] ; point to latest word
+			XOR  ECX,ECX		
+			MOV  EDI,[EBP]		; get string we are seeking
+			MOV  CL,[EDI]		; get length
+.nextword:
+			PUSH ESI			; save start of word sought
+			PUSH EDI			
+			PUSH ECX
+			ADD	 ESI,8
+			MOV  AL,[ESI]
+			CMP  AL,CL
+			JNE  .nomatch
+			INC  ESI
+			CMP  AL,16
+			JBE  .inrange
+			MOV	 AL,16
+.inrange:
+			REPE CMPSB
+			JNE  .nomatch
+			JMP	 .found
+	;;  do comparison
+.nomatch:
+			POP  ECX
+			POP	 EDI
+			POP	 ESI
+			MOV	 ESI,[ESI]		; back to next word
+			TEST ESI,ESI
+			JZ	 .notfound
+			JMP  .nextword
 			
+.found:
+			POP  ECX
+			POP  EDI
+			POP  ESI
+
+.notfound:
+			MOV  [EBP],ESI
+			POP  EDI
+			POP  ESI
+			NEXTI
+		
 ;; ( codeword name flags -- )
-mkdict:	   PUSH EDI
-		   PUSH ESI
-		   MOV EDI,[_here+EBX]
-		   PUSH EDI				; save here
-		   MOV ESI,[_link+EBX]
-		   MOV [EDI],ESI		; link
-		   ADD EDI,4
-		   MOV EAX,[EBP]
-		   MOV [EDI],AL			; flags
-		   XOR AL,AL			  
-		   INC EDI
-		   MOV [EDI], AL		; pad0
-		   INC EDI
-		   MOV [EDI],AL			; pad1
-		   INC EDI
-		   MOV ESI,[EBP+4]		; name length
-		   XOR ECX,ECX
-		   MOV CL,[ESI]
-		   CMP CL,16
-		   JBE .namecopy
-		   MOV CL,16
-.namecopy: MOV [EDI],CL			; name
-		   INC EDI
-		   CLD
-		   REP STOSB
-		   MOV EAX,[EBP+8]		; codeword	
-		   MOV [EDI],EAX
-		   ADD EDI,4
-		   MOV [_here+EBX],EDI	; set here
-		   POP EDI				; edi = old here
-		   MOV [_latest+EBX],EDI
-		   POP ESI
-		   POP EDI
-		   NEXTI
+mkdict:	   	PUSH EDI
+			PUSH ESI
+			MOV EDI,[_here+EBX]
+			PUSH EDI				; save here
+			MOV ESI,[_link+EBX]
+			MOV [EDI],ESI		; link
+			ADD EDI,4
+			MOV EAX,[EBP]
+			MOV [EDI],AL			; flags
+			XOR AL,AL			  
+			INC EDI
+			MOV [EDI], AL		; pad0
+			INC EDI
+			MOV [EDI],AL		; pad1
+			INC EDI
+			MOV ESI,[EBP+4]		; name length
+			XOR ECX,ECX
+			MOV CL,[ESI]
+			MOV [EDI],CL
+			INC EDI
+			PUSH EDI
+			CMP CL,16
+			JBE .namecopy
+			MOV CL,16
+.namecopy:
+			CLD
+			REP STOSB
+			POP	EDI
+			ADD EDI,16
+			MOV EAX,[EBP+8]		; codeword	
+			MOV [EDI],EAX
+			ADD EDI,4
+			MOV [_here+EBX],EDI	; set here
+			POP EDI				; edi = old here
+			MOV [_latest+EBX],EDI
+			LEA EBP,[EBP+12]
+			POP ESI
+			POP EDI
+			NEXTI
 		   
 ;;; --- debugging support routines 
 
