@@ -73,7 +73,7 @@ void *mkdict(char *name, void (*codeword)(), int flags) {
 
 /* begin a colon definition */
 void *colon(char *name) {
-  *latest_ptr = *here_ptr;
+//  *latest_ptr = *here_ptr;
   return mkdict(name, MK_PTR(K_DOCOL), F_HIDDEN);
 }
 
@@ -94,14 +94,14 @@ int main(int argc, char **argv) {
   long kernel_size;
   uint8 *kernel;
   uint8 *kernel_data;
-  void *herecw, *allotcw, *litcw;
+  void *herecw, *allotcw, *litcw, *exitcwptr;
   void *dupcw, *overcw, *dropcw, *swapcw;
-  void *addcw, *subcw; 
-  void *fetchcw, *storecw;
+  void *addcw, *subcw, *zeroeqcw; 
+  void *fetchcw, *storecw, *executecw;
   void *emitcw;
   void *clv80cw,*hxtovcw,*seestkcw;
   void *intrcw;
-  void *sourcecw, *intgtcw, *wordcw, *mkdictcw, *commacw, *findwrdcw;
+  void *sourcecw, *intgtcw, *wordcw, *mkdictcw, *commacw, *findwrdcw, *semicoloncw;
   void *testmecw;
   void *callforthcw;
   void *exitforthcw;
@@ -138,14 +138,19 @@ int main(int argc, char **argv) {
     /* start building the dictionary */
     herecw = mkdict("HERE", MK_PTR(K_HEREVAR), 0);
     exitcw = mkdict("EXIT", MK_PTR(K_DOEXIT), 0);
+    exitcwptr = (uint32*) MK_PTR(K_EXITCW);
+    *(uint32*)exitcwptr = (uint32) exitcw;
+
     dupcw = mkdict("DUP", MK_PTR(K_DUP), 0);
     overcw = mkdict("OVER", MK_PTR(K_OVER), 0);
     dropcw = mkdict("DROP", MK_PTR(K_DROP), 0);
     swapcw = mkdict("SWAP", MK_PTR(K_SWAP), 0);
     fetchcw = mkdict("@", MK_PTR(K_FETCH), 0);
     storecw = mkdict("!", MK_PTR(K_STORE), 0);
+    executecw = mkdict("EXECUTE", MK_PTR(K_DOEXEC), 0);
     addcw = mkdict("+", MK_PTR(K_ADD), 0);
     subcw = mkdict("-", MK_PTR(K_SUB), 0);
+    zeroeqcw = mkdict("0=", MK_PTR(K_ZEROEQ), 0);
     mkdict("*", MK_PTR(K_MUL), 0);
     mkdict("/MOD", MK_PTR(K_DIVMOD), 0);
     allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
@@ -159,12 +164,13 @@ int main(int argc, char **argv) {
     sourcecw = mkdict("SOURCE", MK_PTR(K_SOURCE), 0);
     intgtcw = mkdict(">IN", MK_PTR(K_INGT), 0);
     commacw = mkdict(",", MK_PTR(K_COMMA), 0);
+    semicoloncw = mkdict(";", MK_PTR(K_SEMICO), 0);
     findwrdcw = mkdict("FINDWRD", MK_PTR(K_FINDWRD), 0);
     mkdictcw = mkdict("MKDICT", MK_PTR(K_MKDICT), 0);
     wordcw = mkdict("WORD", MK_PTR(K_WORD), 0);
   
     tib = (char*) MK_PTR(K_TIB);
-    strcpy(tib,"WORD");
+    strcpy(tib,"TSTWRD");
     tiblen =(char*)  MK_PTR(K_TIBLEN);
     *tiblen = strlen(tib);
     testmecw = colon("TESTME");
@@ -211,14 +217,38 @@ int main(int argc, char **argv) {
     semicolon();
 */
 
+/* testing find word 
     comma((uint32)litcw);
     comma((uint32)tiblen);
     comma((uint32)findwrdcw);
-    comma((uint32)seestkcw);  
+    comma((uint32)seestkcw);
+*/
+
+/* testing mkdict */
+    comma((uint32) litcw);
+    comma((uint32) MK_PTR(K_DOCOL));  
+    comma((uint32) litcw);
+    comma((uint32) tiblen);
+    comma((uint32) litcw);
+    comma((uint32) F_HIDDEN);
+    comma((uint32) mkdictcw);
+    comma((uint32) litcw);
+    comma((uint32) zeroeqcw);
+    comma((uint32) commacw);
+    comma((uint32) semicoloncw);
     semicolon();
 
     callforthcw = colon("CALLFORTH");
     comma((uint32)testmecw);
+    comma((uint32)litcw);
+    comma((uint32)tiblen);
+    comma((uint32)findwrdcw);
+    comma((uint32)seestkcw);
+    comma((uint32)litcw);
+    comma((uint32)0);
+    comma((uint32)swapcw);
+    comma((uint32)executecw);
+    comma((uint32)seestkcw);
     comma((uint32)exitforthcw); 
 
     /* compute kernel entry address */

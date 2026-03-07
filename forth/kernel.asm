@@ -74,37 +74,41 @@ doexit_:	POP ESI				; return stack -> IP
 			NEXTI
 
 ;; constant interpreter
-docon_:		ADD EDI,4
-			MOV EAX,[EDI]
-			PUSHDSP EAX
-			NEXTI
+docon_:		ADD EDI,4			; get data field
+			MOV EAX,[EDI]		; push constant to data stack
+			PUSHDSP EAX			
+			NEXTI			
 
 ;; variable interpreter
 dovar_:		ADD EDI,4
 			PUSHDSP EDI
 			NEXTI
 
+doexec_: 	MOV EDI,[EBP]    ; Get CFA
+            LEA EBP,[EBP+4]  ; Pop data stack
+            JMP [EDI]        ; Execute!
+
 ;;; code for primitives
-dup_:		MOV EAX,[EBP]
-			LEA EBP,[EBP-4]
-			MOV [EBP], EAX
+dup_:		MOV EAX,[EBP] 	; get tos
+			LEA EBP,[EBP-4] ; push
+			MOV [EBP], EAX	; write new tos
 			NEXTI
 
 ;;; (x1 x2 --- x1 x2 x1 )
-over_:		MOV EAX,[EBP+4]
-			LEA EBP,[EBP-4]
-			MOV [EBP], EAX
+over_:		MOV EAX,[EBP+4]	; get 2os
+			LEA EBP,[EBP-4]	; push
+			MOV [EBP], EAX	; write new toss
 			NEXTI
 
 ;; ( x -- )
-drop_:		LEA EBP,[EBP+4]
+drop_:		LEA EBP,[EBP+4] ; pop
 			NEXTI
 
 ;; ( x1 x2 -- x2 x1 )
-swap_:		MOV EAX,[EBP]
-			MOV EDX,[EBP+4]
-			MOV [EBP+4],EAX
-			MOV [EBP],EDX
+swap_:		MOV EAX,[EBP]		; get tos	
+			MOV EDX,[EBP+4]		; get 2os
+			MOV [EBP+4],EAX		; write new 2os
+			MOV [EBP],EDX		; write now tos
 			NEXTI	
 
 fetch_:		MOV EAX,[EBP]		; EDX <- address to fetch
@@ -144,6 +148,16 @@ divmod_:	XOR EDX,EDX
 			MOV [EBP+4],EDX
 			MOV [EBP],EAX
 			NEXTI
+
+zeroeq_:    XOR EAX,EAX
+			CMP EAX,[EBP]
+			SETE AL
+			NEG AL
+			MOVZX EAX,AL
+			MOV [EBP],EAX
+			NEXTI 
+
+;; dictionary related
 
 ;; ( n -- ) allocate n bytes of space at here
 allot_:		MOV EDX,[EBP]
@@ -294,17 +308,17 @@ findwrd:	PUSH ESI
 			PUSH ESI			; save start of word sought
 			PUSH EDI			
 			PUSH ECX
-			ADD	 ESI,7
-			MOV  AL,[ESI]
-			CMP  AL,CL
+			ADD	 ESI,7			; bump to namelen in dictionary
+			MOV  AL,[ESI]		; get name length
+			CMP  AL,CL			; compare with source string len
 			JNE  .nomatch
 			INC  ESI
-			CMP  AL,16
+			CMP  AL,16			; trunc to 16
 			JBE  .inrange
 			MOV	 AL,16
 .inrange:
 			INC  EDI
-			REPE CMPSB
+			REPE CMPSB			; compare strings
 			JNE  .nomatch
 			JMP	 .found
 	;;  do comparison
@@ -321,6 +335,7 @@ findwrd:	PUSH ESI
 			POP  ECX
 			POP  EDI
 			POP  ESI
+			ADD  ESI, 24
 
 .notfound:
 			MOV  [EBP],ESI
@@ -354,8 +369,9 @@ mkdict:	   	PUSH EDI
 			JBE .namecopy
 			MOV CL,16
 .namecopy:
+			INC ESI
 			CLD
-			REP STOSB
+			REP MOVSB
 			POP	EDI
 			ADD EDI,16
 			MOV EAX,[EBP+8]		; codeword	
@@ -369,6 +385,32 @@ mkdict:	   	PUSH EDI
 			POP EDI
 			NEXTI
 		   
+; SEMICOLON ( -- )
+; Compile EXIT, unhide latest word, return to interpret mode
+semico_:    
+			PUSH ESI
+			PUSH EDI
+			
+			; Compile EXIT
+			MOV EDI, [EBX+_here]        ; EDI = HERE
+			MOV EAX, [EBX+_exitcw]     ; EAX = address of EXIT code
+			MOV [EDI], EAX              ; Compile EXIT
+			ADD EDI, 4                  
+			MOV [EBX+_here], EDI        ; Update HERE
+			
+			; Unhide the latest word
+			MOV ESI, [EBX+_latest]      ; ESI = latest entry
+			MOV AL, [ESI+4]             ; Load flags byte (offset 4)
+			AND AL, ~20h                ; Clear HIDDEN bit
+			MOV [ESI+4], AL             ; Store back
+			
+			; Return to interpret mode
+			MOV DWORD [EBX+_state], 0   ; STATE = 0
+			
+			POP EDI
+			POP ESI
+			NEXTI
+
 ;;; --- debugging support routines 
 
 hxtov_aux:  MOV  EAX,[EBP]
@@ -468,6 +510,11 @@ _link:		DD _dicttop
 _here:	    DD _dicttop
 ;;; pointer to latest defined word
 _latest:	DD _dicttop
+;;; compilation state
+_state: 	DD 0
+;;; exit codewword
+_exitcw:	DD 0
+
 ;;; save c stack pointer registers
 _cesp:		DD	0
 _cebp:		DD	0
