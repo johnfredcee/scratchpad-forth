@@ -98,10 +98,11 @@ int main(int argc, char **argv) {
   void *dupcw, *overcw, *dropcw, *swapcw;
   void *addcw, *subcw, *zeroeqcw; 
   void *fetchcw, *storecw, *executecw;
-  void *emitcw;
+  void *emitcw, *numbercw;
   void *clv80cw,*hxtovcw,*seestkcw;
   void *intrcw;
-  void *sourcecw, *intgtcw, *wordcw, *mkdictcw, *commacw, *findwrdcw, *semicoloncw;
+  void *sourcecw, *ingtcw, *wordcw, *mkdictcw, *commacw, *findwrdcw, *semicoloncw;
+  void *branchcw, *branchzcw;
   void *testmecw;
   void *callforthcw;
   void *exitforthcw;
@@ -156,21 +157,24 @@ int main(int argc, char **argv) {
     allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
     intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
     emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
+    numbercw = mkdict("NUMBER", MK_PTR(K_NUMBER), 0);
     litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
     clv80cw = mkdict("CLV80", MK_PTR(K_CLV80), 0);
     hxtovcw = mkdict("HXTOV", MK_PTR(K_HXTOV), 0);
     seestkcw = mkdict("SEESTK", MK_PTR(K_SEESTK), 0);
     exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
     sourcecw = mkdict("SOURCE", MK_PTR(K_SOURCE), 0);
-    intgtcw = mkdict(">IN", MK_PTR(K_INGT), 0);
+    ingtcw = mkdict(">IN", MK_PTR(K_INGT), 0);
     commacw = mkdict(",", MK_PTR(K_COMMA), 0);
     semicoloncw = mkdict(";", MK_PTR(K_SEMICO), 0);
+    branchcw = mkdict("BRANCH", MK_PTR(K_BRANCH),0);
+    branchzcw = mkdict("?BRANCH", MK_PTR(K_BRANCHZ), 0);
     findwrdcw = mkdict("FINDWRD", MK_PTR(K_FINDWRD), 0);
     mkdictcw = mkdict("MKDICT", MK_PTR(K_MKDICT), 0);
     wordcw = mkdict("WORD", MK_PTR(K_WORD), 0);
-  
+    
     tib = (char*) MK_PTR(K_TIB);
-    strcpy(tib,"TSTWRD");
+    strcpy(tib,"-980");
     tiblen =(char*)  MK_PTR(K_TIBLEN);
     *tiblen = strlen(tib);
     testmecw = colon("TESTME");
@@ -224,7 +228,7 @@ int main(int argc, char **argv) {
     comma((uint32)seestkcw);
 */
 
-/* testing mkdict */
+/* testing mkdict 
     comma((uint32) litcw);
     comma((uint32) MK_PTR(K_DOCOL));  
     comma((uint32) litcw);
@@ -236,10 +240,6 @@ int main(int argc, char **argv) {
     comma((uint32) zeroeqcw);
     comma((uint32) commacw);
     comma((uint32) semicoloncw);
-    semicolon();
-
-    callforthcw = colon("CALLFORTH");
-    comma((uint32)testmecw);
     comma((uint32)litcw);
     comma((uint32)tiblen);
     comma((uint32)findwrdcw);
@@ -249,6 +249,16 @@ int main(int argc, char **argv) {
     comma((uint32)swapcw);
     comma((uint32)executecw);
     comma((uint32)seestkcw);
+    semicolon();
+*/
+    comma((uint32) litcw);
+    comma((uint32) tiblen);
+    comma((uint32) numbercw);
+    semicolon();
+
+    callforthcw = colon("CALLFORTH");
+    comma((uint32)testmecw);
+    comma((uint32)seestkcw);    
     comma((uint32)exitforthcw); 
 
     /* compute kernel entry address */

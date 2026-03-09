@@ -236,6 +236,62 @@ key_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
 .fin:		MOV [EBP],EAX
 			NEXTI
 
+;;; Parse numeric literasl using _base as radix			
+;;; esi - start address of counted string
+;;; eax -- value
+number_aux:	XOR  EAX,EAX
+			XOR  ECX,ECX
+			MOV  CL,[ESI]
+			INC  ESI
+			TEST ECX,ECX
+			JZ 	 .return 	; ZERO - LENGTH STRING = 0
+			MOV  EDX,[_base+EBX]
+			XOR  EBX,EBX
+			MOV  BL,[ESI]
+			INC  ESI
+			PUSH EAX
+			CMP  BL,'-'
+			JNZ  .convert_char
+			POP  EAX
+			PUSH EBX
+			DEC  ECX
+			JNZ  .next_char 
+			POP	 EBX	; error - string is '-'
+			MOV  ECX,1
+			RET
+.next_char: IMUL EAX,EDX ; EAX = EAX * BASE
+			MOV  BL,[ESI]
+			INC  ESI
+.convert_char:
+			SUB  BL,'0'
+			JB   .negate
+			CMP  BL,10
+			JB   .compare_base
+			SUB  BL,17
+			JB   .negate
+			ADD  BL,10
+.compare_base:
+			CMP	 BL,DL
+			JGE  .negate
+			ADD  EAX,EBX
+			DEC  ECX
+			JNZ  .next_char
+.negate:	POP  EBX
+			TEST EBX,EBX
+			JZ   .return
+			NEG  EAX
+.return:    RET						
+
+;;; ( c-addr --  val ) NUMBER - parse the cunted string at addr and push val on the stack
+;;; uses the current radix in BASE, bails with partial value if string is malformed
+number_:    PUSH ESI
+			PUSH EBX
+			MOV  ESI,[EBP]
+			CALL number_aux
+			MOV  [EBP],EAX
+			POP  EBX
+			POP  ESI
+			NEXTI
 
 ;; --- get input source
 source_: 	LEA EDX,[EBX+_tiblen]
@@ -288,7 +344,7 @@ word_:		PUSH ESI
 			NEXTI
 
 ;;; -- dictionary building
-;; ( n --- ) 	
+;;; ( n --- ) 	
 comma:		MOV EAX,[EBP]	
 			MOV EDX,[_here+EBX]
 			MOV [EDX],EAX
@@ -342,8 +398,9 @@ findwrd:	PUSH ESI
 			POP  EDI
 			POP  ESI
 			NEXTI
-		
-;; ( codeword name flags -- )
+
+;;; MKDICT - Build a dictionary entry		
+;;;  ( codeword name flags -- ) 
 mkdict:	   	PUSH EDI
 			PUSH ESI
 			MOV EDI,[_here+EBX]
@@ -385,8 +442,8 @@ mkdict:	   	PUSH EDI
 			POP EDI
 			NEXTI
 		   
-; SEMICOLON ( -- )
-; Compile EXIT, unhide latest word, return to interpret mode
+;;; SEMICOLON ( -- )
+;;; Compile EXIT, unhide latest word, return to interpret mode
 semico_:    
 			PUSH ESI
 			PUSH EDI
@@ -409,6 +466,19 @@ semico_:
 			
 			POP EDI
 			POP ESI
+			NEXTI
+
+;;; --- branching
+
+;;; ( N --- ) BRANCHz -- only branch if TOS is zero
+branchz_: 	MOV  EAX,[EBP]
+			LEA  EBP,[EBP+4]
+			TEST EAX,EAX
+			JZ   branch_
+			ADD  ESI,4
+			NEXTI
+;;; ( --- ) BRANCH -- unconditional branch
+branch_:  	ADD	ESI,[ESI]
 			NEXTI
 
 ;;; --- debugging support routines 
@@ -512,6 +582,8 @@ _here:	    DD _dicttop
 _latest:	DD _dicttop
 ;;; compilation state
 _state: 	DD 0
+;;; current radix base for number parsing
+_base:      DD 10
 ;;; exit codewword
 _exitcw:	DD 0
 

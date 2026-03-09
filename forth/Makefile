@@ -27,6 +27,8 @@ kernel.bin: kernel.asm .PRECIOUS
 	nasm -f bin kernel.asm -l kernel.lst -o kernel.bin 
 	perl3 munger.pl > kernel.h
 
+main.obj : main.c kernel.bin .PRECIOUS
+
 clean : .SYMBOLIC 
 	rm *.obj *.o *.bin *.map kernel.h forth.exe
 
