@@ -96,12 +96,13 @@ int main(int argc, char **argv) {
   uint8 *kernel_data;
   void *herecw, *allotcw, *litcw, *exitcwptr;
   void *dupcw, *overcw, *dropcw, *swapcw;
-  void *addcw, *subcw, *zeroeqcw; 
+  void *addcw, *subcw, *zeroeqcw, *addonecw, *subonecw, *addfourcw, *subfourcw; 
   void *fetchcw, *storecw, *executecw;
-  void *emitcw, *numbercw;
+  void *emitcw, *keycw, *numbercw;
   void *clv80cw,*hxtovcw,*seestkcw;
   void *intrcw;
-  void *sourcecw, *ingtcw, *wordcw, *mkdictcw, *commacw, *findwrdcw, *semicoloncw;
+  void *sourcecw, *ingtcw, *wordcw, *mkdictcw, *createcw, *coloncw;
+  void *commacw, *findwrdcw, *semicoloncw;
   void *branchcw, *branchzcw;
   void *testmecw;
   void *callforthcw;
@@ -151,12 +152,17 @@ int main(int argc, char **argv) {
     executecw = mkdict("EXECUTE", MK_PTR(K_DOEXEC), 0);
     addcw = mkdict("+", MK_PTR(K_ADD), 0);
     subcw = mkdict("-", MK_PTR(K_SUB), 0);
+    addonecw = mkdict("1+", MK_PTR(K_ADDONE), 0);
+    subonecw = mkdict("1-", MK_PTR(K_SUBONE), 0);
+    addfourcw = mkdict("4+", MK_PTR(K_ADDFOUR), 0);
+    subfourcw = mkdict("4-", MK_PTR(K_SUBFOUR), 0);
     zeroeqcw = mkdict("0=", MK_PTR(K_ZEROEQ), 0);
     mkdict("*", MK_PTR(K_MUL), 0);
     mkdict("/MOD", MK_PTR(K_DIVMOD), 0);
     allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
     intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
     emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
+    keycw = mkdict("KEY", MK_PTR(K_KEY), 0);
     numbercw = mkdict("NUMBER", MK_PTR(K_NUMBER), 0);
     litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
     clv80cw = mkdict("CLV80", MK_PTR(K_CLV80), 0);
@@ -177,8 +183,28 @@ int main(int argc, char **argv) {
     strcpy(tib,"-980");
     tiblen =(char*)  MK_PTR(K_TIBLEN);
     *tiblen = strlen(tib);
-    testmecw = colon("TESTME");
-  
+
+    createcw = colon("CREATE");
+    comma((uint32)litcw);
+    comma((uint32)MK_PTR(K_DOVAR));
+    comma((uint32)litcw);
+    comma((uint32)32);
+    comma((uint32)wordcw);
+    comma((uint32)litcw);
+    comma((uint32)0);
+    comma((uint32)mkdictcw);
+    comma((uint32)addfourcw);
+    semicolon();
+    
+    coloncw = colon(":");
+    comma((uint32)createcw);          // create word
+    comma((uint32)subfourcw);
+    comma((uint32)MK_PTR(K_DOCOL));   // store docol in cfa
+    comma((uint32)swapcw);
+    comma((uint32)storecw);
+    semicolon();
+
+   
   /* -- testing dpmi -- print 'A' using tty
     comma((uint32)herecw);
     comma((uint32)fetchcw);          // ( regstruct -- )
@@ -251,14 +277,23 @@ int main(int argc, char **argv) {
     comma((uint32)seestkcw);
     semicolon();
 */
+/* testing number 
     comma((uint32) litcw);
     comma((uint32) tiblen);
     comma((uint32) numbercw);
     semicolon();
+*/
+
+/* testing emit and key */
+    testmecw = colon("TESTME");
+    comma((uint32)keycw);
+    comma((uint32)dupcw);
+    comma((uint32)emitcw);
+    semicolon();
 
     callforthcw = colon("CALLFORTH");
     comma((uint32)testmecw);
-    comma((uint32)seestkcw);    
+    //comma((uint32)seestkcw);    
     comma((uint32)exitforthcw); 
 
     /* compute kernel entry address */

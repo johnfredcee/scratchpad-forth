@@ -88,6 +88,9 @@ doexec_: 	MOV EDI,[EBP]    ; Get CFA
             LEA EBP,[EBP+4]  ; Pop data stack
             JMP [EDI]        ; Execute!
 
+dobreak_: 	INT 3
+			NEXTI
+
 ;;; code for primitives
 dup_:		MOV EAX,[EBP] 	; get tos
 			LEA EBP,[EBP-4] ; push
@@ -122,12 +125,32 @@ store_:		MOV EDX,[EBP]		; EDX <- address to store ad
 			LEA EBP,[EBP+8]		; Pop 2
 			NEXTI
 
+;; ( n1 -- n1 + 1 ) 1+
+addone_:	INC [EBP]
+			NEXTI
+
+;; ( n1 -- n1 - 1 ) 1-
+subone_:	DEC [EBP]
+			NEXTI
+
+;; ( n1 -- n1 + 4)
+addfour_:	MOV EAX,[EBP]
+			ADD EAX,4
+			MOV [EBP],EAX
+			NEXTI
+
+;; ( n1 -- n1 - 4)
+subfour_:	MOV EAX,[EBP]
+			SUB EAX,4
+			MOV [EBP],EAX
+			NEXTI
+
 ;; ( n1 n2 -- n1 + n2 )
 add_:		MOV EAX,[EBP]
 			LEA EBP,[EBP+4]
 			ADD [EBP],EAX
 			NEXTI
-	
+;; ( n1 n2 -- n1 - n2 )	
 sub_:		MOV EAX,[EBP]
 			LEA EBP,[EBP+4]
 			SUB [EBP],EAX
@@ -181,6 +204,7 @@ lit_:		LEA EBP,[EBP-4]
 
 ;; --- system words
 
+
 ;;; (offset intnum  --- 0 | offset )
 intr_:		PUSH EBX
 			PUSH EDI
@@ -199,41 +223,62 @@ intr_:		PUSH EBX
 			POP EBX
 			NEXTI
 
-;;; ( char -- )
-emit_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
-			MOV EAX,[EBP]			; grab char to print
-			MOV AH,0Eh				; int 10 function
-			MOV [EDX+DPMI_EAX],EAX ; print it
-			XOR EAX,EAX
-			MOV [EDX+DPMI_EBX], EAX ; current color this page
-			LEA EBP,[EBP-8]
-			MOV EAX,10h				; push interrupt call
-			MOV [EBP+4], EAX
-			MOV [EBP+8], EDX
-			MOV EDX,[EBX+intr_]
-			MOV [EBP], EDX
-			EXECUTEI
-			LEA EBP,[EBP-4]
+hex_:		MOV EAX,16
+			MOV [_base+EBX], EAX
 			NEXTI
 
-;; ( -- char )
-key_:		LEA	EDX,[EBX+_dpmiregs]	; get dpmi regs base
-			MOV AH,07h				; int 21 function
-			MOV [EDX+DPMI_EAX], EAX
-			LEA EBP,[EBP-12]
-			MOV EAX,21h
-			MOV [EBP+4], EAX
-			MOV [EBP+8], EDX
-			LEA EDX,[EBX+intr_]
-			MOV [EBP], EDX
-			EXECUTEI
-			MOV EDX,[EBP]
-			JNZ .ok
-			XOR EAX,EAX
-			JMP .fin
-.ok:		MOV EAX,[EDX+_dpmiregs]
-			MOVZX EAX,AL
-.fin:		MOV [EBP],EAX
+octal_:		MOV EAX,8
+			MOV [_base+EBX], EAX
+			NEXTI
+
+decimal_:	MOV EAX,10
+			MOV [_base+EBX], EAX
+			NEXTI
+
+;;; ( char -- ) EMIT
+;;; prints char to TTY
+emit_:		PUSH EDI
+			LEA	 EDI,[EBX+_dpmiregs]	; get dpmi regs base
+			XOR  EAX,EAX
+			MOV  AH,02h					; int function 02
+			MOV  [EDI+DPMI_EAX],EAX  
+			XOR  EDX,EDX
+			MOV  EDX,[EBP]				; character to print
+			MOV  [EDI+DPMI_EDX],EDX
+			MOV  EAX,0300h				; dpmi simulate real mode interrupt
+			XOR  ECX,ECX
+			PUSH DS						; ensure es = ds (it probably does..)
+			POP  ES						
+			PUSH EBX
+			MOV  BX,0021h				; int 21
+			INT  31h					; call it
+			POP  EBX
+			POP  EDI
+			LEA  EBP,[EBP+4]			; consume char
+			NEXTI
+
+;; ( -- char ) KEY
+;; Gets single keypress char from stdin
+key_:		PUSH EDI
+			LEA	 EDI,[EBX+_dpmiregs]	; get dpmi regs base
+			XOR  EAX,EAX
+			MOV  AH,08h					; int  function 08
+			MOV  [EDI+DPMI_EAX], EAX
+			MOV  EAX,0300h				; dpmi simulate real mode interrupt
+			XOR  ECX,ECX
+			PUSH DS						; ensure es = ds (it probably does..)
+			POP  ES						
+			PUSH EBX
+			MOV  BX,0021h				; int 21
+			INT  31h					; call it
+			JC   .bad
+			MOV  EAX,[EDI+DPMI_EAX]
+			JMP  .fin
+.bad:		XOR EAX,EAX
+.fin:		POP EBX
+			POP EDI
+			LEA EBP,[EBP-4]
+			MOV [EBP],EAX
 			NEXTI
 
 ;;; Parse numeric literasl using _base as radix			
@@ -308,7 +353,8 @@ ingt_:		LEA EAX,[EBX+_tibchr]
 			MOV [EBP-4],EAX
 			LEA EBP,[EBP-4]
 			NEXTI		
-
+;;; ( delimter -- addr ) WORD
+;;; parse word from input stream and place at addr
 word_:		PUSH ESI
 			PUSH EDI
 			MOV ESI,[EBX+_tibchr]   ; ESI = tib
@@ -400,7 +446,7 @@ findwrd:	PUSH ESI
 			NEXTI
 
 ;;; MKDICT - Build a dictionary entry		
-;;;  ( codeword name flags -- ) 
+;;;  ( codeword name flags -- cfa ) 
 mkdict:	   	PUSH EDI
 			PUSH ESI
 			MOV EDI,[_here+EBX]
@@ -442,6 +488,12 @@ mkdict:	   	PUSH EDI
 			POP EDI
 			NEXTI
 		   
+create_:	LEA EDX,[dovar_+EBX]
+			MOV [EBP-4], EDX
+			LEA EAX,020h
+			
+
+
 ;;; SEMICOLON ( -- )
 ;;; Compile EXIT, unhide latest word, return to interpret mode
 semico_:    
