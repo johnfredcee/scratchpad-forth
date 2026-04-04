@@ -61,7 +61,7 @@ DPMI_SS  EQU 30h
 
 ;;; execute an xt on the data stack
 %macro		EXECUTEI 0
-			POPDSP 	 EDI		; POP PSP TO W
+			POPDSP 	 EDI		; POP PSP TO W 
 			JMP		 [EDI]		; [W] JMP
 %endmacro
 
@@ -69,7 +69,7 @@ docol_:		PUSH ESI 			; IP -> return stack
 			MOV  ESI,EDI		; W + CELL -> IP
 			ADD  ESI,4
 			NEXTI				; Go!
-		
+
 doexit_:	POP ESI				; return stack -> IP
 			NEXTI
 
@@ -90,6 +90,8 @@ doexec_: 	MOV EDI,[EBP]    ; Get CFA
 
 dobreak_: 	INT 3
 			NEXTI
+
+;; --- stack manipulation ---------------------------
 
 ;;; code for primitives
 dup_:		MOV EAX,[EBP] 	; get tos
@@ -114,6 +116,8 @@ swap_:		MOV EAX,[EBP]		; get tos
 			MOV [EBP],EDX		; write now tos
 			NEXTI	
 
+;; --- memory access ---------------------------
+
 fetch_:		MOV EAX,[EBP]		; EDX <- address to fetch
 			MOV EAX,[EAX]		; EAX <- value at address
 			MOV [EBP],EAX
@@ -124,6 +128,8 @@ store_:		MOV EDX,[EBP]		; EDX <- address to store ad
 			MOV [EDX],EAX
 			LEA EBP,[EBP+8]		; Pop 2
 			NEXTI
+
+;; --- artithmetic words ---------------------------
 
 ;; ( n1 -- n1 + 1 ) 1+
 addone_:	INC [EBP]
@@ -180,7 +186,74 @@ zeroeq_:    XOR EAX,EAX
 			MOV [EBP],EAX
 			NEXTI 
 
-;; dictionary related
+;; --- dictionary building and words ---------------------------
+
+;; write EAX to [_here] and advance _here
+comma_aux:	MOV EDI,[_here+EBX]
+			MOV [EDI],EAX
+			ADD EDI,4
+			MOV [_here+EBX],EDI
+			RET
+
+;; finalise a dictionary definition by writing exit
+semicolon_aux:
+			MOV EDI,[_here+EBX]
+			MOV EAX,[_exitcw+EBX]	; stored in here by c-harness
+			MOV [EDI],EAX
+			ADD EDI,4
+			MOV [_here+EBX],EDI
+			RET
+
+;; make dictionary entry
+;; [esi] -- counted string
+;; edi - cfa of word
+;; eax -- flags
+;; out
+;; eax - cfa
+mkdict_aux:	PUSH EDI
+			MOV EDI,[_here+EBX]
+			PUSH EDI				; save here
+			PUSH ESI               ; ( ESI EDI EDI )
+			MOV ESI,[_link+EBX]
+			MOV [EDI],ESI		; link
+			ADD EDI,4
+			MOV [EDI],AL			; flags
+			XOR AL,AL			  
+			INC EDI
+			MOV [EDI], AL		; pad0
+			INC EDI
+			MOV [EDI],AL		; pad1
+			INC EDI
+			POP ESI				; (EDI  EDI)
+			XOR ECX,ECX
+			MOV CL,[ESI]
+			MOV [EDI],CL
+			INC EDI				; (EDI EDI EDI)
+			PUSH EDI
+			CMP CL,16
+			JBE .namecopy		; namestring
+			MOV CL,16
+.namecopy:
+			INC ESI
+			CLD
+			REP MOVSB
+			POP	EDI				; (EDI EDI)
+			ADD EDI,16
+			POP ESI				; old here (EDI)
+			POP EAX				; codeword ()
+			MOV [EDI],EAX
+			MOV EAX,EDI			; eax = [cfa]
+			ADD EDI,4
+			MOV [_here+EBX],EDI	; set here
+			MOV [_latest+EBX],ESI
+			RET
+
+;; colon 
+;; EAX - flags
+;; ESI - nanme as counted string
+colon_aux:	LEA EDI,[docol_+EBX]
+			CALL mkdict_aux
+			RET
 
 ;; ( n -- ) allocate n bytes of space at here
 allot_:		MOV EDX,[EBP]
@@ -201,6 +274,54 @@ lit_:		LEA EBP,[EBP-4]
 			ADD ESI,4
 			NEXTI
 
+;; dictionary building macros
+
+;; makecol "NAME",NAME,FLAGS
+%macro MAKECOL 3		
+	%strlen namelen %1 ; NASM calculates this for us!
+	SECTION FORTHDATA  align=4 progbits
+	BITS 32
+	global name_%2
+name_%2:
+	db namelen
+	db %1
+	SECTION	KERNEL ALIGN=4 progbits
+	BITS 32
+	LEA ESI,[name_%2+EBX]
+	MOV EAX,%3
+	CALL colon_aux
+%endmacro	
+
+;; makeword "NAME",LABEL,INTERPRETER,FLAGS
+%macro MAKEWORD 4		
+	%strlen namelen %1 ; NASM calculates this for us!
+	SECTION FORTHDATA  align=4 progbits
+	BITS 32
+	global name_%2
+name_%2:
+	db namelen
+	db %1
+	SECTION	KERNEL ALIGN=4 progbits
+	BITS 32
+	LEA ESI,[name_%2+EBX]
+	LEA EDI,[%3+EBX]
+	MOV EAX,%4
+	CALL mkdict_aux
+%endmacro	
+
+%macro COMMA 1
+	LEA EAX,[%1]
+	CALL comma_aux
+%endmacro
+
+%macro COMPILECOMMA 1
+	LEA EAX,[%1+EBX]
+	CALL comma_aux
+%endmacro
+
+%macro SEMICOLON 0
+	CALL semicolon_aux
+%endmacro
 
 ;; --- system words
 
@@ -479,19 +600,16 @@ mkdict:	   	PUSH EDI
 			ADD EDI,16
 			MOV EAX,[EBP+8]		; codeword	
 			MOV [EDI],EAX
+			MOV [EBP+8],EDI
 			ADD EDI,4
 			MOV [_here+EBX],EDI	; set here
 			POP EDI				; edi = old here
 			MOV [_latest+EBX],EDI
-			LEA EBP,[EBP+12]
+			LEA EBP,[EBP+8]
 			POP ESI
 			POP EDI
 			NEXTI
-		   
-create_:	LEA EDX,[dovar_+EBX]
-			MOV [EBP-4], EDX
-			LEA EAX,020h
-			
+		   			
 
 
 ;;; SEMICOLON ( -- )
@@ -608,9 +726,33 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			LEA EBP,[_stacktop+EBX]	; set the forth stacks
 			LEA ESP,[_rstacktop+EBX]
 
-			MOV ESI, EDX		; prime IP
-			MOV EDI, ESI
+			MAKEWORD "EXITFORTH", EXITFORTH, exitforth_, 0
+			PUSH EAX
+
+			MAKEWORD "EMIT", EMIT, emit_, 0
+			PUSH EAX
+
+			MAKEWORD "KEY", KEY, key_, 0
+			PUSH EAX
+
+			;; make our word for testing
+			MAKECOL  "CALLFORTH", CALLFORTH, 0
+			POP EAX
+			CALL comma_aux
+			POP EAX
+			CALL comma_aux
+			SEMICOLON
+
+			MOV EAX,[_latest+EBX]
+			ADD EAX,24
+			MOV [_coldstart+EBX],EAX
+			POP EAX
+			MOV [_coldstart+4+EBX],EAX
+
+			LEA ESI, [_coldstart+EBX]		; prime IP
+			MOV EDI, [ESI]
 			ADD ESI, 4
+
 			JMP [EDI]
 
 exitforth_:					; should come back here
@@ -638,13 +780,17 @@ _state: 	DD 0
 _base:      DD 10
 ;;; exit codewword
 _exitcw:	DD 0
-
+			
 ;;; save c stack pointer registers
 _cesp:		DD	0
 _cebp:		DD	0
 
-;;; buffer foe dpmi rag calls
+;;; buffer for dpmi real mode interrupt calls
 _dpmiregs: 	TIMES 34h DD 0 
+
+;; vector for jumping to cold statt
+_coldstart: DD 0
+			DD 0
 
 ;; something to read input from
 _parseblen: DB 0

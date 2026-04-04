@@ -37,7 +37,7 @@ typedef struct dict_entry {
 } dict_entry_t;
 #pragma pack(pop)
 
-void (*forth)(void *base, void *colonstart);
+void (*forth)(void *base);
 
 /* newest word in dictionary */
 uint32 *latest_ptr;
@@ -110,6 +110,7 @@ int main(int argc, char **argv) {
   char *tib,*tiblen;
   void *tibptr;
 
+  
   clearscreen();
   printf("\nBooting forth\n");
   kernel_file = fopen("KERNEL.BIN", "rb");
@@ -161,8 +162,8 @@ int main(int argc, char **argv) {
     mkdict("/MOD", MK_PTR(K_DIVMOD), 0);
     allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
     intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
-    emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
-    keycw = mkdict("KEY", MK_PTR(K_KEY), 0);
+    // emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
+    // keycw = mkdict("KEY", MK_PTR(K_KEY), 0);
     numbercw = mkdict("NUMBER", MK_PTR(K_NUMBER), 0);
     litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
     clv80cw = mkdict("CLV80", MK_PTR(K_CLV80), 0);
@@ -285,16 +286,16 @@ int main(int argc, char **argv) {
 */
 
 /* testing emit and key */
-    testmecw = colon("TESTME");
-    comma((uint32)keycw);
-    comma((uint32)dupcw);
-    comma((uint32)emitcw);
-    semicolon();
+    // testmecw = colon("TESTME");
+    // comma((uint32)keycw);
+    // comma((uint32)dupcw);
+    // comma((uint32)emitcw);
+    // semicolon();
 
-    callforthcw = colon("CALLFORTH");
-    comma((uint32)testmecw);
-    //comma((uint32)seestkcw);    
-    comma((uint32)exitforthcw); 
+    // callforthcw = colon("CALLFORTH");
+    // comma((uint32)testmecw);
+    // //comma((uint32)seestkcw);    
+    // comma((uint32)exitforthcw); 
 
     /* compute kernel entry address */
     forth = MK_PTR(K_FORTH);
@@ -305,8 +306,11 @@ int main(int argc, char **argv) {
     printf("TIB @%08p\n", MK_PTR(K_TIB) );
     printf("TIBCHR @%08p\n", MK_PTR(K_TIBCHR) );
     printf("Here @%08p\n", (void*)(*here_ptr) );
+    printf("Docol @%08p\n", MK_PTR(K_DOCOL));
+    printf("DO EXIT @%08p\n", MK_PTR(K_DOEXIT));   
+    printf("Exit cfa @%08p\n", exitcw);
     printf("Entering kernel @ %08x\n", (uint32)forth);
-    forth(kernel, callforthcw);
+    forth(kernel);
     printf("Left kernel\n");
     free(kernel_data);
   } else {
