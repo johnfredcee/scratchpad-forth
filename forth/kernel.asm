@@ -34,6 +34,9 @@ DPMI_CS  EQU 2Ch
 DPMI_SP  EQU 2Eh
 DPMI_SS  EQU 30h
 
+F_IMMEDIATE EQU 18h
+F_HIDDEN    EQU 20H
+
 			SECTION	KERNEL ALIGN=4 progbits
 			BITS 32
 
@@ -274,6 +277,13 @@ lit_:		LEA EBP,[EBP-4]
 			ADD ESI,4
 			NEXTI
 
+immediate_: MOV EDX, [_latest+EBX]
+			LEA EDX, [EDX+4]
+			MOV AL, [EDX]
+			OR  AL, F_IMMEDIATE
+			MOV [EDX],AL
+			NEXTI
+
 ;; dictionary building macros
 
 ;; makecol "NAME",NAME,FLAGS
@@ -285,28 +295,34 @@ lit_:		LEA EBP,[EBP-4]
 name_%2:
 	db namelen
 	db %1
+addr_%2_cfa:
+	dd	0
 	SECTION	KERNEL ALIGN=4 progbits
 	BITS 32
 	LEA ESI,[name_%2+EBX]
 	MOV EAX,%3
 	CALL colon_aux
+	MOV  [addr_%2_cfa+EBX],EAX
 %endmacro	
 
-;; makeword "NAME",LABEL,INTERPRETER,FLAGS
-%macro MAKEWORD 4		
-	%strlen namelen %1 ; NASM calculates this for us!
+;; makeword LABEL,INTERPRETER,FLAGS
+%macro MAKEWORD 3		
+	%strlen namelen %str(%1) ; NASM calculates this for us!
 	SECTION FORTHDATA  align=4 progbits
 	BITS 32
-	global name_%2
-name_%2:
+	global name_%1
+name_%1:
 	db namelen
-	db %1
+	db %str(%1)
+addr_%1_cfa:
+	dd	0
 	SECTION	KERNEL ALIGN=4 progbits
 	BITS 32
-	LEA ESI,[name_%2+EBX]
-	LEA EDI,[%3+EBX]
-	MOV EAX,%4
+	LEA ESI,[name_%1+EBX]
+	LEA EDI,[%2+EBX]
+	MOV EAX,%3
 	CALL mkdict_aux
+	MOV  [addr_%1_cfa+EBX],EAX
 %endmacro	
 
 %macro COMMA 1
@@ -326,6 +342,7 @@ name_%2:
 ;; --- system words
 
 
+;;; Perform DPMI real mode interrupts -  offset is to register information
 ;;; (offset intnum  --- 0 | offset )
 intr_:		PUSH EBX
 			PUSH EDI
@@ -378,8 +395,8 @@ emit_:		PUSH EDI
 			LEA  EBP,[EBP+4]			; consume char
 			NEXTI
 
-;; ( -- char ) KEY
 ;; Gets single keypress char from stdin
+;; ( -- char ) KEY
 key_:		PUSH EDI
 			LEA	 EDI,[EBX+_dpmiregs]	; get dpmi regs base
 			XOR  EAX,EAX
@@ -726,27 +743,22 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			LEA EBP,[_stacktop+EBX]	; set the forth stacks
 			LEA ESP,[_rstacktop+EBX]
 
-			MAKEWORD "EXITFORTH", EXITFORTH, exitforth_, 0
-			PUSH EAX
-
-			MAKEWORD "EMIT", EMIT, emit_, 0
-			PUSH EAX
-
-			MAKEWORD "KEY", KEY, key_, 0
-			PUSH EAX
+			MAKEWORD EXITFORTH, exitforth_, 0
+			MAKEWORD EMIT, emit_, 0
+			MAKEWORD KEY, key_, 0
 
 			;; make our word for testing
 			MAKECOL  "CALLFORTH", CALLFORTH, 0
-			POP EAX
+			MOV EAX,[addr_KEY_cfa+EBX]
 			CALL comma_aux
-			POP EAX
+			MOV EAX,[addr_EMIT_cfa+EBX]
 			CALL comma_aux
 			SEMICOLON
 
 			MOV EAX,[_latest+EBX]
 			ADD EAX,24
 			MOV [_coldstart+EBX],EAX
-			POP EAX
+			MOV EAX,[addr_EXITFORTH_cfa+EBX]
 			MOV [_coldstart+4+EBX],EAX
 
 			LEA ESI, [_coldstart+EBX]		; prime IP
