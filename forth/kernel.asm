@@ -132,6 +132,18 @@ store_:		MOV EDX,[EBP]		; EDX <- address to store ad
 			LEA EBP,[EBP+8]		; Pop 2
 			NEXTI
 
+fetchbyte_:	MOV EDX,[EBP]		; EDX <- address to fetch
+			XOR EAX,EAX
+			MOV AL,[EDX]		; EAX <- value at address
+			MOV [EBP],EAX
+			NEXTI
+
+storebyte_:	MOV EDX,[EBP]		; EDX <- address to store ad  
+			MOV EAX,[EBP+4]		; EAX <- value to store
+			MOV [EDX],AL
+			LEA EBP,[EBP+8]		; Pop 2
+			NEXTI
+
 ;; --- artithmetic words ---------------------------
 
 ;; ( n1 -- n1 + 1 ) 1+
@@ -181,13 +193,37 @@ divmod_:	XOR EDX,EDX
 			MOV [EBP],EAX
 			NEXTI
 
-zeroeq_:    XOR EAX,EAX
-			CMP EAX,[EBP]
-			SETE AL
-			NEG AL
+zeroeq_:    MOV EAX,[EBP]
+			TEST EAX,EAX
+			SETZ AL
 			MOVZX EAX,AL
 			MOV [EBP],EAX
 			NEXTI 
+
+eq_:        MOV EAX,[EBP]
+			CMP EAX,[EBP+4]
+			SETE AL
+			MOVZX EAX,AL
+			LEA EBP,[EBP+4]
+			MOV [EBP], EAX
+			NEXTI
+
+ge_:  		MOV EAX,[EBP]
+			CMP EAX,[EBP+4]
+			SETG AL
+			MOVZX EAX,AL
+			LEA EBP,[EBP+4]
+			MOV [EBP], EAX
+			NEXTI
+
+lt_:		 MOV EAX,[EBP]
+			CMP EAX,[EBP+4]
+			SETL AL
+			MOVZX EAX,AL
+			LEA EBP,[EBP+4]
+			MOV [EBP], EAX
+			NEXTI
+
 
 ;; --- dictionary building and words ---------------------------
 
@@ -767,15 +803,20 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 
 			;; build the dictionary
 			MAKEWORD EXITFORTH, exitforth_, 0
-			;; stack manipulation
+
+			;; stack manipulation - todo - rot
 			MAKEWORD DUP,  dup_, 0
 			MAKEWORD OVER, over_, 0
 			MAKEWORD DROP, drop_, 0
 			MAKEWORD SWAP, swap_, 0
 
-			;; memory manipulation
+			;; return stack manipulation - todo - R> , R<, RDROP
+
+			;; memory manipulation - todo c@, c!, cmove
 			MAKENWORD "@", FETCH, fetch_, 0
 			MAKENWORD "!", STORE, store_, 0
+			MAKENWORD "C@", CFETCH, fetchbyte_, 0
+			MAKENWORD "C!", CSTORE, storebyte_, 0
 
 			;; arithmetic
 			MAKENWORD "+", ADD, add_, 0
@@ -789,6 +830,11 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 
 			;; comparison
 			MAKENWORD "0=", ZEROEQ, zeroeq_, 0
+			MAKENWORD "=", EQUALS, eq_, 0
+			MAKENWORD ">", GREATER, ge_, 0
+			MAKENWORD "<", LESSER, lt_, 0
+
+			;; bitwise logic - todo and, or, xor, invert
 
 			;; io
 			MAKEWORD EMIT, emit_, 0
@@ -810,16 +856,35 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			;; branches
 			MAKENWORD "BRANCH", BRANCH, branch_, 0
 			MAKENWORD "?BRANCH", BRANCHNZ, branchz_, 0
+			MAKEWORD EXECUTE, doexec_, 0
 
 			;; debuggering
 			MAKEWORD HXTOV, hxtov_, 0
 			MAKEWORD SEESTK, seestk_, 0
+			MAKEWORD CLV80, clv80_, 0
+
+			MAKECOL TESTBR, 0
+			MOV EAX,[addr_LIT_cfa+EBX]
+			CALL comma_aux
+			MOV EAX,42
+			CALL comma_aux
+			MOV EAX,[addr_BRANCH_cfa+EBX]
+			CALL comma_aux
+			MOV EAX,12
+			CALL comma_aux
+			MOV EAX,[addr_LIT_cfa+EBX]
+			CALL comma_aux
+			MOV EAX,99
+			CALL comma_aux
+			SEMICOLON
 
 			;; make our word for testing
 			MAKECOL  CALLFORTH, 0
 			MOV EAX,[addr_KEY_cfa+EBX]
 			CALL comma_aux
-			MOV EAX,[addr_EMIT_cfa+EBX]
+			MOV EAX,[addr_TESTBR_cfa+EBX]
+			CALL comma_aux
+			MOV EAX,[addr_SEESTK_cfa+EBX]
 			CALL comma_aux
 			SEMICOLON
 

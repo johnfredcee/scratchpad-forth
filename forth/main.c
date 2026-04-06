@@ -143,8 +143,6 @@ int main(int argc, char **argv) {
     exitcwptr = (uint32*) MK_PTR(K_EXITCW);
     *(uint32*)exitcwptr = (uint32) exitcw;
 
-    executecw = mkdict("EXECUTE", MK_PTR(K_DOEXEC), 0);
-    clv80cw = mkdict("CLV80", MK_PTR(K_CLV80), 0);
     findwrdcw = mkdict("FINDWRD", MK_PTR(K_FINDWRD), 0);
     mkdictcw = mkdict("MKDICT", MK_PTR(K_MKDICT), 0);
     
