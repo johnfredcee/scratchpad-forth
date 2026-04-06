@@ -95,7 +95,6 @@ int main(int argc, char **argv) {
   uint8 *kernel;
   uint8 *kernel_data;
   void *herecw, *allotcw, *litcw, *exitcwptr;
-  void *dupcw, *overcw, *dropcw, *swapcw;
   void *addcw, *subcw, *zeroeqcw, *addonecw, *subonecw, *addfourcw, *subfourcw; 
   void *fetchcw, *storecw, *executecw;
   void *emitcw, *keycw, *numbercw;
@@ -144,47 +143,17 @@ int main(int argc, char **argv) {
     exitcwptr = (uint32*) MK_PTR(K_EXITCW);
     *(uint32*)exitcwptr = (uint32) exitcw;
 
-    dupcw = mkdict("DUP", MK_PTR(K_DUP), 0);
-    overcw = mkdict("OVER", MK_PTR(K_OVER), 0);
-    dropcw = mkdict("DROP", MK_PTR(K_DROP), 0);
-    swapcw = mkdict("SWAP", MK_PTR(K_SWAP), 0);
-    fetchcw = mkdict("@", MK_PTR(K_FETCH), 0);
-    storecw = mkdict("!", MK_PTR(K_STORE), 0);
     executecw = mkdict("EXECUTE", MK_PTR(K_DOEXEC), 0);
-    addcw = mkdict("+", MK_PTR(K_ADD), 0);
-    subcw = mkdict("-", MK_PTR(K_SUB), 0);
-    addonecw = mkdict("1+", MK_PTR(K_ADDONE), 0);
-    subonecw = mkdict("1-", MK_PTR(K_SUBONE), 0);
-    addfourcw = mkdict("4+", MK_PTR(K_ADDFOUR), 0);
-    subfourcw = mkdict("4-", MK_PTR(K_SUBFOUR), 0);
-    zeroeqcw = mkdict("0=", MK_PTR(K_ZEROEQ), 0);
-    mkdict("*", MK_PTR(K_MUL), 0);
-    mkdict("/MOD", MK_PTR(K_DIVMOD), 0);
-    allotcw = mkdict("ALLOT", MK_PTR(K_ALLOT), 0);
-    intrcw = mkdict("INTR", MK_PTR(K_INTR), 0);
-    // emitcw = mkdict("EMIT", MK_PTR(K_EMIT), 0);
-    // keycw = mkdict("KEY", MK_PTR(K_KEY), 0);
-    numbercw = mkdict("NUMBER", MK_PTR(K_NUMBER), 0);
-    litcw = mkdict("LIT", MK_PTR(K_LIT), 0);
     clv80cw = mkdict("CLV80", MK_PTR(K_CLV80), 0);
-    hxtovcw = mkdict("HXTOV", MK_PTR(K_HXTOV), 0);
-    seestkcw = mkdict("SEESTK", MK_PTR(K_SEESTK), 0);
-    exitforthcw = mkdict("EXITFORTH", MK_PTR(K_EXITFORTH), 0);
-    sourcecw = mkdict("SOURCE", MK_PTR(K_SOURCE), 0);
-    ingtcw = mkdict(">IN", MK_PTR(K_INGT), 0);
-    commacw = mkdict(",", MK_PTR(K_COMMA), 0);
-    semicoloncw = mkdict(";", MK_PTR(K_SEMICO), 0);
-    branchcw = mkdict("BRANCH", MK_PTR(K_BRANCH),0);
-    branchzcw = mkdict("?BRANCH", MK_PTR(K_BRANCHZ), 0);
     findwrdcw = mkdict("FINDWRD", MK_PTR(K_FINDWRD), 0);
     mkdictcw = mkdict("MKDICT", MK_PTR(K_MKDICT), 0);
-    wordcw = mkdict("WORD", MK_PTR(K_WORD), 0);
     
     tib = (char*) MK_PTR(K_TIB);
     strcpy(tib,"-980");
     tiblen =(char*)  MK_PTR(K_TIBLEN);
     *tiblen = strlen(tib);
 
+    /**
     createcw = colon("CREATE");
     comma((uint32)litcw);
     comma((uint32)MK_PTR(K_DOVAR));
@@ -204,98 +173,7 @@ int main(int argc, char **argv) {
     comma((uint32)swapcw);
     comma((uint32)storecw);
     semicolon();
-
-   
-  /* -- testing dpmi -- print 'A' using tty
-    comma((uint32)herecw);
-    comma((uint32)fetchcw);          // ( regstruct -- )
-    comma((uint32)litcw);
-    comma(0x30);
-    comma((uint32)allotcw);
-    comma((uint32)dupcw);              // ( regstruct regstruct -- )
-    comma((uint32)litcw);
-    comma(0x1C);                      // ( regstruct regstruct 1c -- )
-    comma((uint32)addcw);             // (regstruct regstruct + 1c )
-    comma((uint32)litcw);             
-    comma(0x0E41);                    // (regstruct regstruct + 1c 0x0E41 -- )
-    comma((uint32)swapcw);            // ( regstrict 0x04E1 regstruct -- )
-    comma((uint32)storecw);           // ( regstruct -- )
-    comma((uint32)litcw);
-    comma((uint32)0x10);              // ( regstruct 0x10 -- )
-    comma((uint32)intrcw);            // ( -- result )
- */
-
- /* testing stack visualiser
-    comma((uint32)clv80cw);
-    comma((uint32)litcw);
-    comma((uint32)0xB8000);
-    comma((uint32)litcw);
-    comma((uint32)0xCECE80FF);
-    comma((uint32)seestkcw);
-    comma((uint32)dropcw);
-    comma((uint32)dropcw);
-  */
-
-  /* testing input buffer 
-    comma((uint32)litcw);
-    comma(0x20);
-    comma((uint32)wordcw);
-    comma((uint32)seestkcw);
-    comma((uint32)litcw);
-    comma(0x20);
-    comma((uint32)wordcw);
-    comma((uint32)seestkcw);  
-    semicolon();
-*/
-
-/* testing find word 
-    comma((uint32)litcw);
-    comma((uint32)tiblen);
-    comma((uint32)findwrdcw);
-    comma((uint32)seestkcw);
-*/
-
-/* testing mkdict 
-    comma((uint32) litcw);
-    comma((uint32) MK_PTR(K_DOCOL));  
-    comma((uint32) litcw);
-    comma((uint32) tiblen);
-    comma((uint32) litcw);
-    comma((uint32) F_HIDDEN);
-    comma((uint32) mkdictcw);
-    comma((uint32) litcw);
-    comma((uint32) zeroeqcw);
-    comma((uint32) commacw);
-    comma((uint32) semicoloncw);
-    comma((uint32)litcw);
-    comma((uint32)tiblen);
-    comma((uint32)findwrdcw);
-    comma((uint32)seestkcw);
-    comma((uint32)litcw);
-    comma((uint32)0);
-    comma((uint32)swapcw);
-    comma((uint32)executecw);
-    comma((uint32)seestkcw);
-    semicolon();
-*/
-/* testing number 
-    comma((uint32) litcw);
-    comma((uint32) tiblen);
-    comma((uint32) numbercw);
-    semicolon();
-*/
-
-/* testing emit and key */
-    // testmecw = colon("TESTME");
-    // comma((uint32)keycw);
-    // comma((uint32)dupcw);
-    // comma((uint32)emitcw);
-    // semicolon();
-
-    // callforthcw = colon("CALLFORTH");
-    // comma((uint32)testmecw);
-    // //comma((uint32)seestkcw);    
-    // comma((uint32)exitforthcw); 
+    */
 
     /* compute kernel entry address */
     forth = MK_PTR(K_FORTH);

@@ -286,23 +286,23 @@ immediate_: MOV EDX, [_latest+EBX]
 
 ;; dictionary building macros
 
-;; makecol "NAME",NAME,FLAGS
-%macro MAKECOL 3		
-	%strlen namelen %1 ; NASM calculates this for us!
+;; makecol LABEL,FLAGS
+%macro MAKECOL 2		
+	%strlen namelen %str(%1) ; NASM calculates this for us!
 	SECTION FORTHDATA  align=4 progbits
 	BITS 32
-	global name_%2
-name_%2:
+	global name_%1
+name_%1:
 	db namelen
-	db %1
-addr_%2_cfa:
+	db %str(%1)
+addr_%1_cfa:
 	dd	0
 	SECTION	KERNEL ALIGN=4 progbits
 	BITS 32
-	LEA ESI,[name_%2+EBX]
-	MOV EAX,%3
+	LEA ESI,[name_%1+EBX]
+	MOV EAX,%2
 	CALL colon_aux
-	MOV  [addr_%2_cfa+EBX],EAX
+	MOV  [addr_%1_cfa+EBX],EAX
 %endmacro	
 
 ;; makeword LABEL,INTERPRETER,FLAGS
@@ -323,6 +323,27 @@ addr_%1_cfa:
 	MOV EAX,%3
 	CALL mkdict_aux
 	MOV  [addr_%1_cfa+EBX],EAX
+%endmacro	
+
+;; version of makeword where word name and labael are different eg. ! and fetch
+;; makenword "NAME", LABEL, INTERPRETER, FLAGS
+%macro MAKENWORD 4		
+	%strlen namelen %1 ; NASM calculates this for us!
+	SECTION FORTHDATA  align=4 progbits
+	BITS 32
+	global name_%2
+name_%2:
+	db namelen
+	db %1
+addr_%2_cfa:
+	dd	0
+	SECTION	KERNEL ALIGN=4 progbits
+	BITS 32
+	LEA ESI,[name_%2+EBX]
+	LEA EDI,[%3+EBX]
+	MOV EAX,%4
+	CALL mkdict_aux
+	MOV  [addr_%2_cfa+EBX],EAX
 %endmacro	
 
 %macro COMMA 1
@@ -529,7 +550,7 @@ word_:		PUSH ESI
 
 ;;; -- dictionary building
 ;;; ( n --- ) 	
-comma:		MOV EAX,[EBP]	
+comma_:		MOV EAX,[EBP]	
 			MOV EDX,[_here+EBX]
 			MOV [EDX],EAX
 			ADD EDX,4
@@ -664,6 +685,7 @@ branchz_: 	MOV  EAX,[EBP]
 			JZ   branch_
 			ADD  ESI,4
 			NEXTI
+
 ;;; ( --- ) BRANCH -- unconditional branch
 branch_:  	ADD	ESI,[ESI]
 			NEXTI
@@ -743,12 +765,58 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			LEA EBP,[_stacktop+EBX]	; set the forth stacks
 			LEA ESP,[_rstacktop+EBX]
 
+			;; build the dictionary
 			MAKEWORD EXITFORTH, exitforth_, 0
+			;; stack manipulation
+			MAKEWORD DUP,  dup_, 0
+			MAKEWORD OVER, over_, 0
+			MAKEWORD DROP, drop_, 0
+			MAKEWORD SWAP, swap_, 0
+
+			;; memory manipulation
+			MAKENWORD "@", FETCH, fetch_, 0
+			MAKENWORD "!", STORE, store_, 0
+
+			;; arithmetic
+			MAKENWORD "+", ADD, add_, 0
+			MAKENWORD "-", SUB, sub_, 0
+			MAKENWORD "*", MUL, mul_, 0
+			MAKENWORD "/MOD", DIVMOD, divmod_, 0
+			MAKENWORD "1+", ADDONE, addone_, 0
+			MAKENWORD "1-", SUBONE, subone_, 0
+			MAKENWORD "4+", ADDFOUR, addfour_, 0
+			MAKENWORD "4-", SUBFOUR, subfour_, 0
+
+			;; comparison
+			MAKENWORD "0=", ZEROEQ, zeroeq_, 0
+
+			;; io
 			MAKEWORD EMIT, emit_, 0
 			MAKEWORD KEY, key_, 0
+			MAKENWORD ">IN", INGT, ingt_, 0
+			MAKEWORD INTR, intr_, 0
+			MAKEWORD SOURCE, source_, 0
+
+			;; dictionary manipulation
+			MAKEWORD ALLOT, allot_, 0
+			MAKEWORD LIT, lit_, 0
+			MAKENWORD ",", COMMA, comma_, 0
+			MAKENWORD ";", SEMICOLON, semico_, 0
+
+			;; parsing
+			MAKEWORD NUMBER, number_, 0
+			MAKENWORD "WORD", WORD, word_, 0
+
+			;; branches
+			MAKENWORD "BRANCH", BRANCH, branch_, 0
+			MAKENWORD "?BRANCH", BRANCHNZ, branchz_, 0
+
+			;; debuggering
+			MAKEWORD HXTOV, hxtov_, 0
+			MAKEWORD SEESTK, seestk_, 0
 
 			;; make our word for testing
-			MAKECOL  "CALLFORTH", CALLFORTH, 0
+			MAKECOL  CALLFORTH, 0
 			MOV EAX,[addr_KEY_cfa+EBX]
 			CALL comma_aux
 			MOV EAX,[addr_EMIT_cfa+EBX]
