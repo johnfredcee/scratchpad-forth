@@ -216,12 +216,70 @@ ge_:  		MOV EAX,[EBP]
 			MOV [EBP], EAX
 			NEXTI
 
-lt_:		 MOV EAX,[EBP]
+lt_:		MOV EAX,[EBP]
 			CMP EAX,[EBP+4]
 			SETL AL
 			MOVZX EAX,AL
 			LEA EBP,[EBP+4]
 			MOV [EBP], EAX
+			NEXTI
+
+and_:		MOV EAX,[EBP]
+			AND [EBP+4],EAX
+			LEA EBP,[EBP+4]
+			NEXTI
+
+or_:		MOV EAX,[EBP]
+			OR  [EBP+4],EAX
+			LEA EBP,[EBP+4]
+			NEXTI
+
+xor_:		MOV EAX,[EBP]
+			XOR [EBP+4],EAX
+			LEA EBP,[EBP+4]
+			NEXTI
+		
+invert_:	NOT [EBP]	
+			NEXTI
+
+;; --- return stack manipulation ---------------------------
+
+; move value from param stack to return stack
+tors_:		MOV EAX,[EBP]
+			PUSH EAX
+			LEA EBP,[EBP-4]
+			NEXTI
+
+; move value from return stack to param stack
+fromrs_:	POP	EAX
+			LEA	EBP,[EBP-4]
+			MOV [EBP],EAX
+			NEXTI
+
+; get the actual address RSP points to
+rspfetch_:	LEA	EBP,[EBP-4]
+			MOV [EBP],ESP
+			NEXTI
+		
+; set the address RSP points to
+rspstore_:	MOV EAX,[EBP]
+			LEA	EBP,[EBP+4]
+			MOV ESP,EAX
+			NEXTI
+		
+; move RSP to "pop" value and throw it away
+rdrop_:		POP	EAX
+			NEXTI
+
+; push parameter stack value onto stack
+dspfetch_:	MOV EAX,EBP
+			LEA EBP,[EBP-4]
+			MOV [EBP],EAX
+			NEXTI
+
+; store the value on top of parameter stack into psp
+dspstore_:	MOV EAX,[EBP]
+			MOV EBP,EAX
 			NEXTI
 
 
@@ -313,6 +371,7 @@ lit_:		LEA EBP,[EBP-4]
 			ADD ESI,4
 			NEXTI
 
+;; immediate - set last word as immediate
 immediate_: MOV EDX, [_latest+EBX]
 			LEA EDX, [EDX+4]
 			MOV AL, [EDX]
@@ -547,7 +606,8 @@ source_: 	LEA EDX,[EBX+_tiblen]
 ingt_:		LEA EAX,[EBX+_tibchr]
 			MOV [EBP-4],EAX
 			LEA EBP,[EBP-4]
-			NEXTI		
+			NEXTI
+		
 ;;; ( delimter -- addr ) WORD
 ;;; parse word from input stream and place at addr
 word_:		PUSH ESI
@@ -594,8 +654,8 @@ comma_:		MOV EAX,[EBP]
 			LEA EBP,[EBP+4]
 			NEXTI
 
-;; ( c-ccc -- address )
-findwrd:	PUSH ESI
+;; ( c-ccc -- address n )
+find_:		PUSH ESI
 			PUSH EDI
 			MOV  ESI,[_latest+EBX] ; point to latest word
 			XOR  ECX,ECX		
@@ -633,16 +693,28 @@ findwrd:	PUSH ESI
 			POP  EDI
 			POP  ESI
 			ADD  ESI, 24
-
-.notfound:
 			MOV  [EBP],ESI
+			LEA  EBP,[EBP-4]
+			SUB  ESI, 20
+			MOV  EAX,[ESI]
+			AND  AL,F_IMMEDIATE
+			SETNZ AL
+			NEG	AL
+			MOVSX EAX,AL
+			MOV	[EBP], EAX
+			JMP	.done
+.notfound:
+			LEA  EBP,[EBP-4]
+			XOR  EAX,EAX
+			MOV  [EBP],EAX
+.done:
 			POP  EDI
 			POP  ESI
 			NEXTI
 
 ;;; MKDICT - Build a dictionary entry		
 ;;;  ( codeword name flags -- cfa ) 
-mkdict:	   	PUSH EDI
+mkdict_:	PUSH EDI
 			PUSH ESI
 			MOV EDI,[_here+EBX]
 			PUSH EDI				; save here
@@ -811,7 +883,14 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			MAKEWORD SWAP, swap_, 0
 
 			;; return stack manipulation - todo - R> , R<, RDROP
-
+			MAKENWORD ">R", TORS, tors_, 0
+			MAKENWORD "R>", FROMRS, fromrs_, 0
+			MAKENWORD "R@", RSPFETCH, rspfetch_, 0
+			MAKENWORD "R!", RSPSTORE, rspstore_, 0
+			MAKEWORD RDROP, rdrop_, 0
+			MAKENWORD "SP@", DSPFETCH, dspfetch_,0
+			MAKENWORD "SP!", DSPSTORE, dspstore_,0
+		
 			;; memory manipulation - todo c@, c!, cmove
 			MAKENWORD "@", FETCH, fetch_, 0
 			MAKENWORD "!", STORE, store_, 0
@@ -828,13 +907,19 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			MAKENWORD "4+", ADDFOUR, addfour_, 0
 			MAKENWORD "4-", SUBFOUR, subfour_, 0
 
+			;; bitwise logic - todo and, or, xor, invert
+			MAKEWORD  OR,or_,0
+			MAKEWORD  AND,and_,0
+			MAKEWORD  XOR,xor_,0
+			MAKEWORD  INVERT,invert_,0
+		
 			;; comparison
 			MAKENWORD "0=", ZEROEQ, zeroeq_, 0
 			MAKENWORD "=", EQUALS, eq_, 0
 			MAKENWORD ">", GREATER, ge_, 0
 			MAKENWORD "<", LESSER, lt_, 0
 
-			;; bitwise logic - todo and, or, xor, invert
+
 
 			;; io
 			MAKEWORD EMIT, emit_, 0
@@ -848,7 +933,8 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			MAKEWORD LIT, lit_, 0
 			MAKENWORD ",", COMMA, comma_, 0
 			MAKENWORD ";", SEMICOLON, semico_, 0
-
+			MAKEWORD FIND, find_, 0
+	
 			;; parsing
 			MAKEWORD NUMBER, number_, 0
 			MAKENWORD "WORD", WORD, word_, 0
