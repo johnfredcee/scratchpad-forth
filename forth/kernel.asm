@@ -95,14 +95,19 @@ dobreak_: 	INT 3
 			NEXTI
 
 ;; --- stack manipulation ---------------------------
+;;
+;; Stack effect notation used in comments:
+;;   ( before -- after )
+;; where the rightmost item is TOS (top-of-stack).
 
 ;;; code for primitives
+;; ( x -- x x )
 dup_:		MOV EAX,[EBP] 	; get tos
 			LEA EBP,[EBP-4] ; push
 			MOV [EBP], EAX	; write new tos
 			NEXTI
 
-;;; (x1 x2 --- x1 x2 x1 )
+;;; ( x1 x2 -- x1 x2 x1 )
 over_:		MOV EAX,[EBP+4]	; get 2os
 			LEA EBP,[EBP-4]	; push
 			MOV [EBP], EAX	; write new toss
@@ -120,6 +125,11 @@ swap_:		MOV EAX,[EBP]		; get tos
 			NEXTI	
 
 ;; --- memory access ---------------------------
+;; Standard FORTH memory operators:
+;;   @   ( addr -- x )      fetch cell
+;;   !   ( x addr -- )      store cell
+;;   C@  ( addr -- x )      fetch byte (zero-extended)
+;;   C!  ( x addr -- )      store low byte
 
 fetch_:		MOV EAX,[EBP]		; EDX <- address to fetch
 			MOV EAX,[EAX]		; EAX <- value at address
@@ -144,7 +154,8 @@ storebyte_:	MOV EDX,[EBP]		; EDX <- address to store ad
 			LEA EBP,[EBP+8]		; Pop 2
 			NEXTI
 
-;; --- artithmetic words ---------------------------
+;; --- arithmetic words ---------------------------
+;; Arithmetic primitives mapped to standard FORTH names.
 
 ;; ( n1 -- n1 + 1 ) 1+
 addone_:	INC [EBP]
@@ -185,6 +196,8 @@ mul_:		MOV EAX,[EBP]
 			MOV [EBP], EAX
 			NEXTI
 
+;; ( n1 n2 -- rem quot ) /MOD
+;; Uses signed division: n1 = dividend, n2 = divisor.
 divmod_:	XOR EDX,EDX
 			MOV ECX,[EBP]
 			MOV EAX,[EBP+4]
@@ -284,6 +297,16 @@ dspstore_:	MOV EAX,[EBP]
 
 
 ;; --- dictionary building and words ---------------------------
+;;
+;; Dictionary entry layout produced by mkdict_aux:
+;;   +00  link (ptr to previous entry)
+;;   +04  flags (IMMEDIATE/HIDDEN/etc)
+;;   +05  padding
+;;   +07  name length (max 16 stored)
+;;   +08  name bytes (padded/truncated to 16)
+;;   +24  code field address (CFA)
+;;
+;; The MAKEWORD/MAKENWORD/MAKECOL macros below create entries at boot.
 
 ;; write EAX to [_here] and advance _here
 comma_aux:	MOV EDI,[_here+EBX]
@@ -874,15 +897,21 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			LEA ESP,[_rstacktop+EBX]
 
 			;; build the dictionary
+			;;
+			;; Word definition blocks below register primitives and
+			;; high-level words in boot order. Keeping them grouped by
+			;; FORTH vocabulary makes it easier to audit coverage.
 			MAKEWORD EXITFORTH, exitforth_, 0
 
-			;; stack manipulation - todo - rot
+			;; stack manipulation words:
+			;; DUP OVER DROP SWAP
 			MAKEWORD DUP,  dup_, 0
 			MAKEWORD OVER, over_, 0
 			MAKEWORD DROP, drop_, 0
 			MAKEWORD SWAP, swap_, 0
 
-			;; return stack manipulation - todo - R> , R<, RDROP
+			;; return stack words:
+			;; >R R> R@ R! RDROP SP@ SP!
 			MAKENWORD ">R", TORS, tors_, 0
 			MAKENWORD "R>", FROMRS, fromrs_, 0
 			MAKENWORD "R@", RSPFETCH, rspfetch_, 0
@@ -891,13 +920,15 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			MAKENWORD "SP@", DSPFETCH, dspfetch_,0
 			MAKENWORD "SP!", DSPSTORE, dspstore_,0
 		
-			;; memory manipulation - todo c@, c!, cmove
+			;; memory words:
+			;; @ ! C@ C!
 			MAKENWORD "@", FETCH, fetch_, 0
 			MAKENWORD "!", STORE, store_, 0
 			MAKENWORD "C@", CFETCH, fetchbyte_, 0
 			MAKENWORD "C!", CSTORE, storebyte_, 0
 
-			;; arithmetic
+			;; arithmetic words:
+			;; + - * /MOD 1+ 1- 4+ 4-
 			MAKENWORD "+", ADD, add_, 0
 			MAKENWORD "-", SUB, sub_, 0
 			MAKENWORD "*", MUL, mul_, 0
@@ -907,13 +938,15 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 			MAKENWORD "4+", ADDFOUR, addfour_, 0
 			MAKENWORD "4-", SUBFOUR, subfour_, 0
 
-			;; bitwise logic - todo and, or, xor, invert
+			;; bitwise logic words:
+			;; OR AND XOR INVERT
 			MAKEWORD  OR,or_,0
 			MAKEWORD  AND,and_,0
 			MAKEWORD  XOR,xor_,0
 			MAKEWORD  INVERT,invert_,0
 		
-			;; comparison
+			;; comparison words:
+			;; 0= = > <
 			MAKENWORD "0=", ZEROEQ, zeroeq_, 0
 			MAKENWORD "=", EQUALS, eq_, 0
 			MAKENWORD ">", GREATER, ge_, 0
@@ -921,30 +954,35 @@ forth_:		MOV EBX,EAX			; EAX has kernel base addy - should be in EBX
 
 
 
-			;; io
+			;; I/O and input state words:
+			;; EMIT KEY >IN INTR SOURCE
 			MAKEWORD EMIT, emit_, 0
 			MAKEWORD KEY, key_, 0
 			MAKENWORD ">IN", INGT, ingt_, 0
 			MAKEWORD INTR, intr_, 0
 			MAKEWORD SOURCE, source_, 0
 
-			;; dictionary manipulation
+			;; dictionary/compiler words:
+			;; ALLOT LIT , ; FIND
 			MAKEWORD ALLOT, allot_, 0
 			MAKEWORD LIT, lit_, 0
 			MAKENWORD ",", COMMA, comma_, 0
 			MAKENWORD ";", SEMICOLON, semico_, 0
 			MAKEWORD FIND, find_, 0
 	
-			;; parsing
+			;; parsing words:
+			;; NUMBER WORD
 			MAKEWORD NUMBER, number_, 0
 			MAKENWORD "WORD", WORD, word_, 0
 
-			;; branches
+			;; branch and execution words:
+			;; BRANCH ?BRANCH EXECUTE
 			MAKENWORD "BRANCH", BRANCH, branch_, 0
 			MAKENWORD "?BRANCH", BRANCHNZ, branchz_, 0
 			MAKEWORD EXECUTE, doexec_, 0
 
-			;; debuggering
+			;; debugger words:
+			;; HXTOV SEESTK CLV80
 			MAKEWORD HXTOV, hxtov_, 0
 			MAKEWORD SEESTK, seestk_, 0
 			MAKEWORD CLV80, clv80_, 0
